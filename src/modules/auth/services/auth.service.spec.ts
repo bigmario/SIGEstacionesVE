@@ -3,10 +3,7 @@ import { AuthService } from './auth.service';
 import { AuthRepository } from '../repositories/auth.repository';
 import { JwtService } from '@nestjs/jwt';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import {
-  InternalServerErrorException,
-  NotFoundException,
-} from '@nestjs/common';
+import { InternalServerErrorException } from '@nestjs/common';
 import { compareSync } from 'bcryptjs';
 
 jest.mock('bcryptjs', () => ({
