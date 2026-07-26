@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  InternalServerErrorException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 import { UserRepository } from '@user/repositories/user.repository';
@@ -20,6 +16,11 @@ import {
 } from '@user/types/find-many.types';
 import { USER_BASE_ROUTE } from '@user/constants/routes.const';
 import { UpdateUserDto } from '@user/dtos/update-user.dto';
+import { buildPaginationCacheKeySuffix } from '@utils/pagination.utils';
+import {
+  isNotFoundError,
+  throwUnexpectedError,
+} from '@core/prisma/utils/prisma-error.util';
 
 // ── Cache key prefixes & TTLs (ms) ──────────────────────────
 
@@ -62,7 +63,7 @@ export class UserService {
       where: { deletedAt: null },
     };
 
-    const keySuffix = `page=${queryParams.page ?? 1}&limit=${queryParams.limit ?? 10}`;
+    const keySuffix = buildPaginationCacheKeySuffix(queryParams);
 
     const userRoles =
       await this.userRepository.findAllCached<FindManySessionRolesArgs>(
@@ -90,7 +91,7 @@ export class UserService {
       where: { deletedAt: null },
     };
 
-    const keySuffix = `page=${queryParams.page ?? 1}&limit=${queryParams.limit ?? 10}`;
+    const keySuffix = buildPaginationCacheKeySuffix(queryParams);
 
     const userStatuses =
       await this.userRepository.findAllCached<FindManySessionStatusesArgs>(
@@ -136,11 +137,9 @@ export class UserService {
       },
     };
 
-    const keySuffix = [
-      `page=${queryParams.page ?? 1}`,
-      `limit=${queryParams.limit ?? 10}`,
-      ...(queryParams.search ? [`search=${queryParams.search}`] : []),
-    ].join('&');
+    const keySuffix = buildPaginationCacheKeySuffix(queryParams, {
+      search: queryParams.search,
+    });
 
     const users = await this.userRepository.findAllCached<FindManyUsersArgs>(
       this.userRepository.prismaService.user,
@@ -214,14 +213,10 @@ export class UserService {
       };
       return response;
     } catch (error) {
-      switch (error.code) {
-        case 'P2025':
-          throw new BadRequestException(`No existe el usuario con el id ${id}`);
-
-        default:
-          console.log(error);
-          throw new InternalServerErrorException(`Ocurrio un error inesperado`);
+      if (isNotFoundError(error)) {
+        throw new BadRequestException(`No existe el usuario con el id ${id}`);
       }
+      throwUnexpectedError(error, 'getUserById');
     }
   }
 
@@ -264,16 +259,10 @@ export class UserService {
 
       return { message: 'Usuario eliminado con éxito' };
     } catch (error) {
-      switch (error.code) {
-        case 'P2025':
-          throw new BadRequestException(`No existe el usuario con el id ${id}`);
-
-        default:
-          console.log(error);
-          throw new InternalServerErrorException({
-            message: 'Ocurrio un error desconocido al borrar al usuario',
-          });
+      if (isNotFoundError(error)) {
+        throw new BadRequestException(`No existe el usuario con el id ${id}`);
       }
+      throwUnexpectedError(error, 'deleteUser');
     }
   }
 }

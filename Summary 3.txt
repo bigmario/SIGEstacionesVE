@@ -1,0 +1,30 @@
+Summary
+Extracts four repeated code patterns into shared utilities. Pure refactor — no behavior change, all 73 unit tests still pass and build is green.
+
+1. Prisma error handling (src/core/prisma/utils/prisma-error.util.ts)
+
+The same try/catch + switch(error.code) / console.log + InternalServerErrorException shape was duplicated across user.service (getUserById, deleteUser) and auth.service (sendRecoveryMail), plus three identical write wrappers in user.repository. Now:
+
+isNotFoundError(error)            // true for Prisma P2025 or NotFoundError
+throwUnexpectedError(error, resp) // logs (Nest Logger) + throws 500
+runPrismaWrite(op, 'CU001')       // wraps a write, tags failures with a code
+Service catch blocks collapse from a switch to:
+
+} catch (error) {
+  if (isNotFoundError(error)) throw new BadRequestException(`No existe...`);
+  throwUnexpectedError(error);
+}
+user.repository loses its three private *Transaction / createSession methods; each write is now runPrismaWrite(() => tx.user.create(...), 'CU001'). console.log(error) is replaced by a Nest Logger (per repo error-handling guidelines).
+
+2. Pagination cache-key suffix (src/utils/pagination.utils.ts)
+
+user.service built page=..&limit=.. strings by hand in three places. Replaced with buildPaginationCacheKeySuffix(queryParams, { search }), which emits identical keys (extra entries appended only when non-empty).
+
+3. Auth session profile (src/modules/auth/utils/session.utils.ts)
+
+login and getMyInfo shared an identical select object and identical response shaping. Extracted SESSION_PROFILE_SELECT and mapSessionToProfile(session); login now spreads ...mapSessionToProfile(fullSessionInfo) on top of access_token.
+
+Validation
+npm run build — passes
+npm run test — 73/73 pass
+npm run lint — no new errors (2 pre-existing errors in untouched files redis-cache.module.ts and jwt-auth.guard.spec.ts remain, confirmed present on main)

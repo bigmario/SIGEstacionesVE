@@ -7,6 +7,7 @@ import {
   UseGuards,
   Body,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 
 import { LocalAuthGuard } from '@auth/guards/local-auth.guard';
 import { AuthService } from '@auth/services/auth.service';
@@ -32,6 +33,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @UseGuards(LocalAuthGuard)
   @Post(AUTH_LOGIN_ROUTE)
   @ApiBody({
@@ -61,12 +63,14 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post(AUTH_PASSWORD_RECOVERY)
   public sendRecoveryMail(@Body() recoveryDto: RecoveryDto) {
     return this.authService.sendRecoveryMail(recoveryDto);
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post(AUTH_RESET_PASSWORD)
   public resetPassword(@Body() resetPassDto: ResetPassDto) {
     return this.authService.resetPassword(resetPassDto);

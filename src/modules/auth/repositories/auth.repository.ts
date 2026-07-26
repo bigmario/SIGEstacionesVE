@@ -2,6 +2,9 @@ import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
+  Logger,
+  UnauthorizedException,
+  HttpException,
 } from '@nestjs/common';
 import { hashSync } from 'bcryptjs';
 import { PrismaService } from '@core/prisma/services/prisma.service';
@@ -12,6 +15,8 @@ import { EmailService } from '@core/email/services/email.service';
 
 @Injectable()
 export class AuthRepository {
+  private readonly logger = new Logger(AuthRepository.name);
+
   constructor(
     private readonly prismaService: PrismaService,
     public readonly jwtService: JwtService,
@@ -54,7 +59,7 @@ export class AuthRepository {
       link,
     );
 
-    if (mailSent['accepted'].length === 0) {
+    if (mailSent['accepted']?.length === 0) {
       throw new InternalServerErrorException('Recovery Mail Not Sent');
     }
 
@@ -63,12 +68,18 @@ export class AuthRepository {
     };
   }
 
-  public async resetPassword(token, newPassword) {
+  public async resetPassword(token: string, newPassword: string) {
     try {
-      const payload = this.jwtService.verify(token);
-      // payload.sub
+      let payload: any;
+      try {
+        payload = this.jwtService.verify(token);
+      } catch {
+        throw new UnauthorizedException(
+          'Token de recuperación inválido o expirado',
+        );
+      }
 
-      const session = await this.prismaService.session.findFirstOrThrow({
+      const session = await this.prismaService.session.findFirst({
         where: {
           user: {
             id: payload.sub,
@@ -79,9 +90,10 @@ export class AuthRepository {
         },
       });
 
-      if (session.recoveryToken !== token) {
-        throw new BadRequestException('Unauthorized');
+      if (!session || session.recoveryToken !== token) {
+        throw new BadRequestException('Token de recuperación no válido');
       }
+
       const hash = hashSync(newPassword, 10);
       await this.prismaService.session.update({
         where: {
@@ -94,7 +106,13 @@ export class AuthRepository {
       });
       return { message: 'Password Changed' };
     } catch (error) {
-      throw new InternalServerErrorException(`Error ${error}`);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      this.logger.error('Error al reiniciar contraseña:', error);
+      throw new InternalServerErrorException(
+        'Ocurrió un error al restablecer la contraseña',
+      );
     }
   }
 }

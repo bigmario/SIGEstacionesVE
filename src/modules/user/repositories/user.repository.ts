@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { hashSync } from 'bcryptjs';
 
@@ -12,6 +12,7 @@ import { USER_BASE_ROUTE } from '@user/constants/routes.const';
 import { BaseRepository } from '@core/prisma/repositories/base.repository';
 import { BaseUpdateBodyDto } from '@core/dtos/base-update-body.dto';
 import { UpdateUserDto } from '@user/dtos/update-user.dto';
+import { runPrismaWrite } from '@core/prisma/utils/prisma-error.util';
 
 @Injectable()
 export class UserRepository extends BaseRepository {
@@ -22,6 +23,7 @@ export class UserRepository extends BaseRepository {
   ) {
     super(paginationService, cacheService);
   }
+
   public async updateUser(updateOptions: BaseUpdateBodyDto<UpdateUserDto>) {
     return this.prismaService.$transaction(
       async (prismaTransactionClient: Prisma.TransactionClient) => {
@@ -109,51 +111,39 @@ export class UserRepository extends BaseRepository {
     userData: Prisma.userUpdateArgs['data'],
     prismaTransactionClient: Prisma.TransactionClient,
   ) {
-    try {
-      return await prismaTransactionClient.user.update({
-        where: { id },
-        data: userData,
-      });
-    } catch (error) {
-      console.log(error);
-      throw new InternalServerErrorException({
-        message: 'Ocurrio un error',
-        code: 'UU001',
-      });
-    }
+    return runPrismaWrite(
+      () =>
+        prismaTransactionClient.user.update({
+          where: { id },
+          data: userData,
+        }),
+      'UU001',
+    );
   }
 
   private async createUserTransaction(
     userData: Prisma.userCreateArgs['data'],
     prismaTransactionClient: Prisma.TransactionClient,
   ) {
-    try {
-      return await prismaTransactionClient.user.create({
-        data: userData,
-      });
-    } catch (error) {
-      console.log(error);
-      throw new InternalServerErrorException({
-        message: 'Ocurrio un error',
-        code: 'CU001',
-      });
-    }
+    return runPrismaWrite(
+      () =>
+        prismaTransactionClient.user.create({
+          data: userData,
+        }),
+      'CU001',
+    );
   }
 
   private async createSession(
     sessionData: Prisma.sessionCreateArgs['data'],
     prismaTransactionClient: Prisma.TransactionClient,
   ) {
-    try {
-      return await prismaTransactionClient.session.create({
-        data: sessionData,
-      });
-    } catch (error) {
-      console.log(error);
-      throw new InternalServerErrorException({
-        message: 'Ocurrio un error',
-        code: 'CS001',
-      });
-    }
+    return runPrismaWrite(
+      () =>
+        prismaTransactionClient.session.create({
+          data: sessionData,
+        }),
+      'CS001',
+    );
   }
 }

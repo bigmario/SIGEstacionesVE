@@ -1,0 +1,37 @@
+Summary
+Fixes several places where errors were silently swallowed, mis-mapped to 500 Internal Server Error, or leaked raw internals to the client. In every case the fix follows the repo's own AGENTS.md error-handling rules: map known DB failures to specific exceptions, don't leak raw errors, preserve intentional HTTP exceptions, and use Logger instead of console.log.
+
+1. auth.repository.ts::resetPassword — catch-all masked everything as a 500 and leaked the raw error.
+The old catch re-wrapped every error (including the intentional BadRequestException('Unauthorized') for a mismatched token and all JWT verify failures) into InternalServerErrorException with the raw error string interpolated in. Now:
+
+} catch (error) {
+  if (error instanceof HttpException) throw error;          // preserve domain errors
+  if (JWT error name)  throw new UnauthorizedException(...); // expired/invalid token -> 401
+  if (error.code === 'P2025') throw new BadRequestException(...);
+  logger.error(...); throw new InternalServerErrorException('...generic...'); // no leak
+}
+2. auth.service.ts::sendRecoveryMail — dead not-found branch → recovery for a nonexistent email returned 500 instead of 404.
+Prisma 6 findFirstOrThrow throws PrismaClientKnownRequestError with code === 'P2025', but the switch only checked error.name === 'NotFoundError' (the removed Prisma-<5 behavior), so it never matched. Now checks error.code === 'P2025' (keeping the old name check for back-compat), rethrows HttpExceptions (so the repo's "Recovery Mail Not Sent" 500 keeps its message), and logs via Logger.
+
+3. user.repository.ts transaction helpers — every DB failure became a generic 500 via console.log(error).
+A duplicate-email insert (Prisma P2002) surfaced as 500 "Ocurrio un error" instead of 409 Conflict. Added a shared mapPrismaError():
+
+P2002 -> ConflictException (with the offending field)
+P2025 -> NotFoundException
+HttpException -> rethrown unchanged
+otherwise -> logger.error(original) + InternalServerErrorException (no leak)
+This propagates correctly through UserService.createUser/updateUser (which had no try/catch).
+
+4. user.service.ts — console.log(error) → Logger, and HttpExceptions are now rethrown instead of being flattened into a generic 500 by the default switch branch.
+
+5. jwt-auth.guard.ts::tokenInBlacklist — malformed token caused a 500.
+jwtService.decode(token) returns null for a malformed token, so decodeToken.jti threw a TypeError (→ 500). Now guards against a null decode and lets the passport strategy reject it as 401.
+
+Tests
+New auth.repository.spec.ts covering resetPassword (domain-error passthrough, JWT→401, P2025→400, generic 500 without leaking the raw message, happy path).
+Added cases: user.repository P2002→ConflictException and P2025→NotFoundException; auth.service P2025→NotFoundException and HttpException passthrough; jwt-auth.guard malformed-token no longer 500s.
+npm run lint, npm test (83 passing), and npm run build all green.
+No behavior changes to success paths or public signatures.
+
+Link to Devin session: https://app.devin.ai/sessions/33b1e513cc1a47b28e7b628222ba8d76
+Requested by: @bigmario
