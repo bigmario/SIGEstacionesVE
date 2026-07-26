@@ -132,12 +132,12 @@ export class BaseRepository {
   ): Promise<void> {
     if (!this.cacheService) return;
 
-    // Invalidate list caches
-    await this.cacheService.delByPrefix(`${modelPrefix}:list`);
+    // Invalidate list caches for the model prefix
+    await this.cacheService.delByPrefix(modelPrefix);
 
     // Invalidate specific item cache
     if (id !== undefined) {
-      await this.cacheService.del(`${modelPrefix}:item:${id}`);
+      await this.cacheService.del(`${modelPrefix}:${id}`);
     }
   }
 
