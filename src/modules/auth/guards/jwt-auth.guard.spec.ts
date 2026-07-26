@@ -55,7 +55,6 @@ describe('JwtAuthGuard', () => {
   // The guard uses context.getArgs()[0].headers.authorization
   const createMockContext = (
     headers: Record<string, string> = {},
-    isPublic = false,
   ): ExecutionContext => {
     const request = { headers };
     return {
@@ -109,5 +108,16 @@ describe('JwtAuthGuard', () => {
     expect(AuthGuard('jwt').prototype.canActivate).toHaveBeenCalledWith(
       context,
     );
+  });
+
+  it('no debería fallar con 500 cuando el token es malformado (decode retorna null)', async () => {
+    reflector.getAllAndOverride.mockReturnValue(false);
+    authService.jwtService.decode.mockReturnValue(null);
+    const context = createMockContext({
+      authorization: 'Bearer malformed-token',
+    });
+
+    const result = await guard.canActivate(context);
+    expect(result).toBe(true);
   });
 });

@@ -213,14 +213,16 @@ describe('AuthService', () => {
   });
 
   describe('sendRecoveryMail', () => {
-    it('debería lanzar NotFoundException si el email no existe', async () => {
-      const error = new Error('Not found');
-      error.name = 'NotFoundError';
+    it('debería retornar un mensaje genérico sin lanzar NotFoundException si el email no existe (anti-enumeration)', async () => {
+      const error = { code: 'P2025' };
       authRepo.sendRecoveryMail.mockRejectedValue(error);
 
-      await expect(
-        authService.sendRecoveryMail({ email: 'fake@test.com' }),
-      ).rejects.toThrow(NotFoundException);
+      const result = await authService.sendRecoveryMail({
+        email: 'fake@test.com',
+      });
+      expect(result).toEqual({
+        message: 'Si la cuenta existe, se ha enviado un correo de recuperación',
+      });
     });
 
     it('debería lanzar InternalServerErrorException en error desconocido', async () => {

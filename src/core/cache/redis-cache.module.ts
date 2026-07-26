@@ -1,7 +1,7 @@
 import { Global, Logger, Module } from '@nestjs/common';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { createKeyv, createClient } from '@keyv/redis';
+import { createKeyv } from '@keyv/redis';
 
 import { RedisCacheService } from '@core/cache/redis-cache.service';
 
@@ -51,7 +51,7 @@ import { RedisCacheService } from '@core/cache/redis-cache.service';
               return 50;
             },
           },
-        } as any);
+        });
         const logger = new Logger('RedisCacheModule');
 
         const errorHandler = (err: Error) => {

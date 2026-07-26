@@ -2,7 +2,8 @@ import {
   Inject,
   Injectable,
   InternalServerErrorException,
-  NotFoundException,
+  Logger,
+  HttpException,
 } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
@@ -14,9 +15,16 @@ import { IRequest } from '@auth/interfaces/express';
 import { AuthRepository } from '@auth/repositories/auth.repository';
 import { Prisma } from '@prisma/client';
 import { RecoveryDto, ResetPassDto } from '@auth/dto/recovery.dto';
+import {
+  SESSION_PROFILE_SELECT,
+  mapSessionToProfile,
+} from '@auth/utils/session.utils';
+import { isNotFoundError } from '@core/prisma/utils/prisma-error.util';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly authRepo: AuthRepository,
     public readonly jwtService: JwtService,
@@ -53,40 +61,32 @@ export class AuthService {
   public async login(sessionInfo: IRequest['user']): Promise<any> {
     const findOptions: Prisma.sessionFindFirstArgs = {
       where: { user: { id: sessionInfo.id } },
-      select: {
-        id: true,
-        email: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            lastName: true,
-            imgUrl: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        },
-        type: { select: { id: true, name: true } },
-        rol: { select: { id: true, name: true } },
-      },
+      select: SESSION_PROFILE_SELECT,
     };
     const fullSessionInfo: any =
       await this.authRepo.getSessionInfo(findOptions);
+
+    const profile = mapSessionToProfile(fullSessionInfo);
 
     return {
       access_token: this.jwtService.sign(sessionInfo, {
         jwtid: await nanoid(),
       }),
-      ...fullSessionInfo.user,
-      email: fullSessionInfo.email,
-      type: fullSessionInfo.type.name,
-      rol: fullSessionInfo.rol.name,
+      ...profile,
     };
   }
 
   public async logout(req: IRequest) {
-    const token = req.headers.authorization.split(' ')[1];
+    const token = req.headers.authorization?.split(' ')?.[1];
+    if (!token) {
+      return { message: 'session closed successfully' };
+    }
+
     const decodeToken: any = this.jwtService.decode(token, { complete: true });
+    if (!decodeToken || !decodeToken.payload?.jti) {
+      return { message: 'session closed successfully' };
+    }
+
     const jti = decodeToken.payload.jti;
     const now = Date.now();
     const exp = decodeToken.payload.exp * 1000;
@@ -100,33 +100,13 @@ export class AuthService {
   public async getMyInfo(sessionInfo: IRequest['user']) {
     const findOptions: Prisma.sessionFindFirstArgs = {
       where: { user: { id: sessionInfo.id } },
-      select: {
-        id: true,
-        email: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            lastName: true,
-            imgUrl: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        },
-        type: { select: { id: true, name: true } },
-        rol: { select: { id: true, name: true } },
-      },
+      select: SESSION_PROFILE_SELECT,
     };
 
     const fullSessionInfo: any =
       await this.authRepo.getSessionInfo(findOptions);
 
-    return {
-      ...fullSessionInfo.user,
-      email: fullSessionInfo.email,
-      type: fullSessionInfo.type.name,
-      rol: fullSessionInfo.rol.name,
-    };
+    return mapSessionToProfile(fullSessionInfo);
   }
 
   public async sendRecoveryMail(recoveryDto: RecoveryDto) {
@@ -140,27 +120,35 @@ export class AuthService {
         },
       };
 
-      const mail = await this.authRepo.sendRecoveryMail(findOptions);
-      return mail;
+      return await this.authRepo.sendRecoveryMail(findOptions);
     } catch (error) {
-      switch (error.name) {
-        case 'NotFoundError':
-          throw new NotFoundException(
-            `No existe el usuario con el email ${recoveryDto.email}`,
-          );
-
-        default:
-          console.log(error);
-          throw new InternalServerErrorException(`Ocurrio un error inesperado`);
+      if (isNotFoundError(error)) {
+        this.logger.warn(
+          `Intento de recuperación para email no registrado: ${recoveryDto.email}`,
+        );
+        // Respuesta genérica para evitar enumeración de usuarios
+        return {
+          message:
+            'Si la cuenta existe, se ha enviado un correo de recuperación',
+        };
       }
+
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      this.logger.error(
+        'Error inesperado al enviar correo de recuperación:',
+        error,
+      );
+      throw new InternalServerErrorException('Ocurrió un error inesperado');
     }
   }
 
   public async resetPassword(resetPassDto: ResetPassDto) {
-    const mail = await this.authRepo.resetPassword(
+    return await this.authRepo.resetPassword(
       resetPassDto.token,
       resetPassDto.newPassword,
     );
-    return mail;
   }
 }
