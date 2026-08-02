@@ -57,8 +57,10 @@ async function bootstrap() {
 
   if (enableSwagger) {
     const config = new DocumentBuilder()
-      .setTitle('Base API')
-      .setDescription('Base API')
+      .setTitle('SiGEstacionesVE API')
+      .setDescription(
+        'Sistema de Gestión de Estaciones de Servicio de Combustibles Venezolanas',
+      )
       .setVersion('1.0')
       .addBearerAuth({
         type: 'oauth2',

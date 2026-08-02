@@ -2,11 +2,11 @@
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
 </p>
 
-<h1 align="center">Base NestJS Prisma API</h1>
+<h1 align="center">SiGEstacionesVE</h1>
 
 <p align="center">
-  A production-ready RESTful API boilerplate built with <strong>NestJS 11</strong>, <strong>Prisma ORM</strong>, <strong>PostgreSQL</strong>, and <strong>Redis</strong>.<br/>
-  Includes JWT authentication with token blacklisting, role-based access control, email notifications, pagination, and Docker support out of the box.
+  Sistema de Gestión de Estaciones de Servicio de Combustibles Venezolanas (<strong>SiGEstacionesVE</strong>), construido con <strong>NestJS 11</strong>, <strong>Prisma ORM</strong>, <strong>PostgreSQL</strong> y <strong>Redis</strong>.<br/>
+  Incluye autenticación JWT con revocación de tokens, control de acceso basado en roles, notificaciones por correo, paginación y soporte para Docker listo para usar.
 </p>
 
 <p align="center">
@@ -18,38 +18,74 @@
   <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker" />
   <img src="https://img.shields.io/badge/Swagger-Docs-85EA2D?style=flat-square&logo=swagger&logoColor=black" alt="Swagger" />
   <img src="https://img.shields.io/badge/Node.js-%3E%3D22-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node.js" />
-  <a href="https://deepwiki.com/bigmario/base-nestjs-prisma-api"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki" /></a>
+  <a href="https://deepwiki.com/bigmario/SiGEstacionesVE"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki" /></a>
 </p>
 
 ---
 
 ## 📋 Table of Contents
 
-- [Features](#-features)
-- [Tech Stack](#-tech-stack)
-- [Architecture](#-architecture)
-- [Project Structure](#-project-structure)
-- [Prerequisites](#-prerequisites)
-- [Getting Started](#-getting-started)
-  - [Installation](#1-installation)
-  - [Environment Configuration](#2-environment-configuration)
-  - [Database Setup](#3-database-setup)
-  - [Running the Application](#4-running-the-application)
-- [Docker](#-docker)
-- [API Documentation](#-api-documentation)
-- [API Endpoints](#-api-endpoints)
-- [Authentication & Authorization](#-authentication--authorization)
-- [Database Schema](#-database-schema)
-- [Pagination](#-pagination)
-- [Email Service](#-email-service)
-- [Caching](#-caching)
-- [Path Aliases](#-path-aliases)
-- [Testing](#-testing)
-- [Code Quality](#-code-quality)
-- [Available Scripts](#-available-scripts)
-- [Contributing](#-contributing)
-- [Author](#-author)
-- [License](#-license)
+- [📋 Table of Contents](#-table-of-contents)
+- [✨ Features](#-features)
+- [🛠 Tech Stack](#-tech-stack)
+- [🏗 Architecture](#-architecture)
+- [📁 Project Structure](#-project-structure)
+- [📌 Prerequisites](#-prerequisites)
+- [🚀 Getting Started](#-getting-started)
+  - [1. Installation](#1-installation)
+  - [2. Environment Configuration](#2-environment-configuration)
+    - [Environment Variables](#environment-variables)
+  - [3. Database Setup](#3-database-setup)
+  - [4. Running the Application](#4-running-the-application)
+- [🐳 Docker](#-docker)
+  - [Services](#services)
+  - [Commands](#commands)
+- [📖 API Documentation](#-api-documentation)
+- [📡 API Endpoints](#-api-endpoints)
+  - [Root](#root)
+  - [Authentication (`/auth`)](#authentication-auth)
+  - [Users (`/users`)](#users-users)
+- [🔐 Authentication \& Authorization](#-authentication--authorization)
+  - [Authentication Flow](#authentication-flow)
+  - [Role-Based Access Control](#role-based-access-control)
+  - [Available Roles](#available-roles)
+  - [Password Recovery Flow](#password-recovery-flow)
+- [🗄 Database Schema](#-database-schema)
+  - [Entity Relationship Diagram](#entity-relationship-diagram)
+  - [Identity Prefix Enum](#identity-prefix-enum)
+- [📄 Pagination](#-pagination)
+  - [Query Parameters](#query-parameters)
+  - [Paginated Response Format](#paginated-response-format)
+- [📧 Email Service](#-email-service)
+  - [Configuration](#configuration)
+  - [Adding New Templates](#adding-new-templates)
+- [💾 Caching](#-caching)
+  - [Architecture Overview](#architecture-overview)
+  - [Key Features](#key-features)
+  - [Cache Key Naming Convention](#cache-key-naming-convention)
+  - [TTL Configuration](#ttl-configuration)
+  - [Usage in New Modules](#usage-in-new-modules)
+    - [Option A: Repository Level (Recommended)](#option-a-repository-level-recommended)
+    - [Option B: Controller Level (Declarative Decorators)](#option-b-controller-level-declarative-decorators)
+  - [Health Check Endpoint (`GET /health`)](#health-check-endpoint-get-health)
+  - [Environment Variables](#environment-variables-1)
+- [🔗 Path Aliases](#-path-aliases)
+- [🧪 Testing](#-testing)
+  - [Strategy](#strategy)
+  - [Commands](#commands-1)
+- [✅ Code Quality](#-code-quality)
+  - [Linting](#linting)
+  - [Formatting](#formatting)
+  - [Prettier Configuration](#prettier-configuration)
+- [📜 Available Scripts](#-available-scripts)
+  - [Application](#application)
+  - [Docker](#docker)
+  - [Quality](#quality)
+  - [Prisma](#prisma)
+- [🤝 Contributing](#-contributing)
+  - [Commit Convention](#commit-convention)
+- [👤 Author](#-author)
+- [📄 License](#-license)
 
 ---
 
@@ -123,7 +159,7 @@ Request → Guards (JWT/Local/Roles) → Controller → Service → Repository �
 ## 📁 Project Structure
 
 ```
-base-nestjs-prisma-api/
+SIGEstacionesVE/
 ├── prisma/
 │   ├── migrations/                    # Database migration history
 │   ├── seeder/
@@ -199,9 +235,9 @@ Before you begin, ensure you have the following installed:
 ### 1. Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/bigmario/base-nestjs-prisma-api.git
-cd base-nestjs-prisma-api
+# Clonar el repositorio
+git clone https://github.com/bigmario/SiGEstacionesVE.git
+cd SiGEstacionesVE
 
 # Install dependencies
 npm install

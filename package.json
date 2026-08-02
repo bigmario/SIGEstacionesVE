@@ -1,7 +1,7 @@
 {
-  "name": "base_nestjs_prisma_api",
+  "name": "SiGEstacionesVE",
   "version": "0.1.0",
-  "description": "",
+  "description": "Sistema de Gestión de Estaciones de Servicio de Combustibles Venezolanas (SiGEstacionesVE)",
   "author": "Mario Castro <mariocastro.pva@gmail.com>",
   "private": true,
   "license": "MIT",
