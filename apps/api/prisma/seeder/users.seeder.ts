@@ -60,22 +60,28 @@ export async function createUsers(prismaClient: PrismaServiceType) {
 
   await prismaClient.session_rol.upsert({
     where: { id: 3 },
-    update: {},
+    update: {
+      name: 'Supervisor',
+      description: 'Supervisor de estación / sistema',
+    },
     create: {
       id: 3,
-      name: 'Programador',
-      description: 'Programador de puntos',
+      name: 'Supervisor',
+      description: 'Supervisor de estación / sistema',
       typeId: 1,
     },
   });
 
   await prismaClient.session_rol.upsert({
     where: { id: 4 },
-    update: {},
+    update: {
+      name: 'Islero',
+      description: 'Operador de pista / Islero',
+    },
     create: {
       id: 4,
-      name: 'Vendedor',
-      description: 'Vendedor de puntos',
+      name: 'Islero',
+      description: 'Operador de pista / Islero',
       typeId: 1,
     },
   });

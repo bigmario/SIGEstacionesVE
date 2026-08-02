@@ -68,7 +68,7 @@ async function bootstrap() {
           password: {
             authorizationUrl: '',
             scopes: {},
-            tokenUrl: `${configService.get('BASE_URL')}/auth/login`,
+            tokenUrl: '/auth/login',
             refreshUrl: '',
           },
         },

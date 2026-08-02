@@ -11,6 +11,10 @@ import { HealthModule } from '@core/health/health.module';
 
 import { UserModule } from '@user/user.module';
 import { AuthModule } from '@auth/auth.module';
+import { StationsModule } from '@stations/stations.module';
+import { ShiftsModule } from '@shifts/shifts.module';
+import { InventoryModule } from '@inventory/inventory.module';
+import { CashFlowModule } from '@cash-flow/cash-flow.module';
 import { JwtAuthGuard } from '@auth/guards/jwt-auth.guard';
 
 import { AppController } from './app.controller';
@@ -32,6 +36,10 @@ import { AppController } from './app.controller';
     UserModule,
     AuthModule,
     EmailModule,
+    StationsModule,
+    ShiftsModule,
+    InventoryModule,
+    CashFlowModule,
   ],
   providers: [
     {

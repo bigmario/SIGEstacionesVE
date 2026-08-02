@@ -1,147 +1,66 @@
 # AGENTS Guide
 
-This file defines working rules for coding agents in this repository.
-Follow these conventions unless the user explicitly asks otherwise.
+Este archivo define las reglas de arquitectura, patrones de diseño y restricciones de dominio para cualquier agente de Inteligencia Artificial (Antigravity, Claude, Codex, Cursor, etc.) que trabaje en el repositorio **SiGEstacionesVE**.
 
-## Repository Snapshot
+---
 
-- Stack: NestJS 8 + TypeScript + Prisma + PostgreSQL + Redis.
-- Runtime: Node.js with npm (`package-lock.json` is present).
-- API docs: Swagger in `src/main.ts` and `nest-cli.json`.
-- Validation: global `ValidationPipe` (`whitelist`, `forbidNonWhitelisted`).
-- Structure: feature modules in `src/modules`, shared infra in `src/core`.
+## 🛠 Stack Tecnológico del Proyecto
 
-## Rule Files
+- **Framework:** NestJS 11 (TypeScript 5.7, Node.js ≥ 22)
+- **ORM:** Prisma 6
+- **Base de Datos:** PostgreSQL 16
+- **Caché & Revocación:** Redis 7 (@nestjs/cache-manager + @keyv/redis)
+- **Autenticación & Autorización:** Passport.js (JWT + Local), Roles (`SUPER_ADMIN`, `ADMIN`, `SUPERVISOR`, `ISLERO`)
+- **Documentación:** Swagger / OpenAPI 3.0
 
-- `.cursorrules`: not found.
-- `.cursor/rules/`: not found.
-- `.github/copilot-instructions.md`: not found.
-- If added later, treat those as higher-priority instructions.
+---
 
-## Setup And Runtime Commands
+## 📐 Reglas de Arquitectura y Patrones de Código
 
-- Install dependencies: `npm install`
-- Start app: `npm run start`
-- Dev watch mode: `npm run start:dev`
-- Build dist bundle: `npm run build`
-- Run prod bundle: `npm run start:prod`
+### 1. Patrón Layered Repository
 
-## Docker Commands
+- **Controllers (`*.controller.ts`):** Exclusivamente para enrutamiento HTTP, validación de DTOs y documentación Swagger. No incluir lógica de negocio.
+- **Services (`*.service.ts`):** Orquestación de lógica de negocio, reglas financieras y transacciones.
+- **Repositories (`*.repository.ts`):** Encapsulación de acceso a datos. Deben extender `BaseRepository<T>` para heredar el soporte de caché (`findOneCached`, `findAllCached`, `invalidateModelCache`) y paginación estándar.
 
-- Dev stack (API + Postgres + Redis): `docker-compose up dev`
-- Prod-like stack: `docker-compose up prod`
-- Service file: `docker-compose.yaml`
-- Ports: API `3000`, Postgres `5432`, Redis `6380`
+### 2. Manejo Numérico de Precisión (Regla Crítica)
 
-## Prisma Commands
+- **JAMÁS usar `number` o `Float` de JavaScript/Prisma para volúmenes (litros) o dinero (Bs. / USD).**
+- Todos los campos de volumen y dinero en `schema.prisma` deben ser de tipo `Decimal` (`@db.Decimal(12, 3)` para litros, `@db.Decimal(14, 2)` para montos).
+- En TypeScript, manipular los valores con la clase `Decimal` de `@prisma/client/runtime/library` o `decimal.js`.
 
-- Dev migrations: `npx prisma migrate dev`
-- Deploy migrations: `npx prisma migrate deploy`
-- Generate client: `npx prisma generate`
-- Seed database: `npx prisma db seed`
-- Seed script lives in `package.json` (`prisma.seed`).
+### 3. Control de Acceso y Seguridad (RBAC)
 
-## Lint / Format / Test
+- La autenticación JWT es global (`APP_GUARD`).
+- Utilizar los decoradores `@Roles(Role.ADMIN, Role.ISLERO)` en controladores o métodos para restringir accesos.
+- Las mutaciones de datos que afecten inventarios o cierres financieros requieren rol de administración o supervisión.
 
-- Lint (auto-fix): `npm run lint`
-- Format: `npm run format`
-- Unit tests: `npm run test`
-- Unit tests watch: `npm run test:watch`
-- Coverage: `npm run test:cov`
-- E2E tests: `npm run test:e2e`
-- Debug tests: `npm run test:debug`
+### 4. Transacciones e Inventarios
 
-## Run A Single Test (Important)
+- La creación o cierre de un turno, la recepción de cisterna/gandola y la actualización de tanques deben ejecutarse dentro de **Transacciones Interactivas de Prisma** (`this.prisma.$transaction(async (tx) => { ... })`).
+- Ningún registro de ventas puede dejar el saldo de un tanque en valor negativo; debe arrojar una excepción `BadRequestException` o `UnprocessableEntityException`.
 
-- Unit test file: `npm run test -- src/path/to/file.spec.ts`
-- Unit test by name: `npm run test -- -t "should return user profile"`
-- E2E test file: `npm run test:e2e -- test/app.e2e-spec.ts`
-- E2E test by name: `npm run test:e2e -- -t "GET /"`
-- Fallback direct jest:
-  - `npx jest src/path/to/file.spec.ts`
-  - `npx jest --config ./test/jest-e2e.json test/app.e2e-spec.ts`
+---
 
-## Agent Verification Workflow
+## 🗄️ Convención de Dominios de Negocio
 
-- After non-trivial edits, run `npm run lint` then `npm run test`.
-- For API wiring or module registration changes, also run `npm run build`.
-- For auth/guards/interceptors/bootstrap changes, also run `npm run test:e2e`.
-- If tests are missing, state that explicitly in the final report.
+### Módulo de Turnos y Ventas (`src/modules/shifts`)
 
-## Code Organization
+- **Flujo de Vida:** `ABIERTO` -> `LECTURA_BOMBAS` -> `ARQUEO_CAJA` -> `CERRADO`.
+- **Cálculo de Litros:** $LitrosVendidos = LecturaFinal - LecturaInicial$.
+- **Cierre de Caja:** Registrar diferencia de cuadre ($MontoReal - MontoTeorico$).
 
-- Keep domain code under `src/modules/<domain>/`.
-- Typical folders: `controllers`, `services`, `repositories`, `dtos`, `constants`.
-- Shared cross-cutting code belongs in `src/core/`.
-- Reuse existing helpers in `src/utils/` before adding new utilities.
-- Follow file suffixes: `*.module.ts`, `*.controller.ts`, `*.service.ts`, `*.repository.ts`, `*.dto.ts`, `*.guard.ts`, `*.decorator.ts`, `*.strategy.ts`, `*.types.ts`.
+### Módulo de Inventarios y Tanques (`src/modules/inventory`)
 
-## Imports And Paths
+- **Fórmula de Balance Volumétrico:**
+  $$\text{Inventario Teórico} = \text{Inventario Inicial} + \text{Recepciones (Gandolas)} - \text{Ventas Totales}$$
+- **Merma / Discrepancia:**
+  $$\text{Diferencia} = \text{Inventario Teórico} - \text{Medición Física Final (Varillaje)}$$
 
-- Prefer tsconfig aliases when available: `@core/*`, `@auth/*`, `@user/*`, `@utils*`.
-- Import grouping order (with blank line between groups):
-  1. Nest/third-party packages
-  2. Internal alias imports
-  3. Relative imports (`./`)
-- Keep imports explicit; avoid wildcard barrels unless already established.
+---
 
-## Formatting
+## 🧪 Calidad de Código y Commits
 
-- Prettier is authoritative: single quotes, trailing commas, tab width 2.
-- Keep semicolons consistent with existing code.
-- Keep lines readable and avoid unnecessary long expressions.
-- Avoid introducing non-ASCII unless required by existing file content.
-
-## TypeScript Guidelines
-
-- Repo permits `any` and `strictNullChecks: false`; still prefer safer typing in new code.
-- Prefer typed DTOs and Prisma args over loose object literals.
-- Prefer `unknown` with narrowing instead of `any` for external inputs/errors.
-- Reuse existing types from `src/core/types` and module-local `types/`.
-- Keep public controller/service signatures explicit and stable.
-
-## Naming Conventions
-
-- Classes/enums: `PascalCase`
-- Functions/methods/variables: `camelCase`
-- Constants: `UPPER_SNAKE_CASE`
-- DTO classes end in `Dto`
-- Query DTOs and arg types should be intent-revealing (`AllUsersQueryParams`, etc.)
-
-## Error Handling
-
-- Throw Nest HTTP exceptions at service/controller boundaries.
-- Map known DB/domain failures to specific exceptions.
-- Do not leak raw internal errors in API responses.
-- Prefer Nest `Logger` over `console.log` in new/modified code.
-- Keep error messages consistent and actionable.
-
-## Validation And API Contracts
-
-- Put request validation in DTOs with `class-validator`.
-- Rely on global `ValidationPipe`; avoid duplicated manual validation.
-- Keep Swagger decorators updated for public endpoints.
-- Update module route constants when adding/changing endpoints.
-
-## Prisma And Data Access
-
-- Keep DB access in repositories, not controllers.
-- Use explicit `select` to avoid over-fetching.
-- Preserve soft-delete behavior (`deletedAt`) when applicable.
-- Keep pagination behavior consistent with existing pagination service.
-- For behavior-changing schema updates, include migration + code + seed updates.
-
-## Auth And Security
-
-- JWT auth is global via `APP_GUARD`; mark open routes with `@Public()`.
-- Use `@Roles(...)` and `RolesGuard` for role-based authorization.
-- Never log secrets, passwords, tokens, or full auth payloads.
-- Keep password/token logic inside auth service/repository boundaries.
-
-## PR / Change Checklist
-
-- Keep diffs focused and avoid drive-by refactors.
-- Preserve backward compatibility unless task requires a break.
-- Update tests for behavior changes.
-- Run relevant checks before finishing.
-- Final report should include files changed, commands run, validation status, and follow-up work.
+- **Commits:** Seguir la convención _Conventional Commits_ (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`).
+- **Linter y Formato:** Ejecutar `npm run lint` y `npm run format` antes de concluir cualquier tarea.
+- **Pruebas:** Los nuevos servicios deben incluir su archivo de prueba unitaria (`*.spec.ts`) utilizando mocks de `PrismaService` y `BaseRepository`.

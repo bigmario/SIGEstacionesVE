@@ -59,7 +59,7 @@ services:
     command: ["./wait-for-postgres.sh", "postgres:5432", "--", "sh", "-c", "npm run start:docker-prod"]
     restart: always
     ports:
-      - 3000:3000
+      - "3001:3000"
     networks:
       - main-network
     depends_on:

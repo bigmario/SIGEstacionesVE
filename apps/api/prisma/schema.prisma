@@ -1,0 +1,284 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum identityPrefix {
+  J
+  G
+  V
+  E
+  C
+}
+
+///////USUARIOS
+
+model user {
+  id                 BigInt         @id @default(autoincrement()) @db.BigInt
+  name               String         @db.VarChar(512)
+  lastName           String         @db.VarChar(512)
+  identityCard       String         @db.VarChar(32)
+  identityCardprefix identityPrefix
+  primaryPhone       String         @db.VarChar(32)
+  secondaryPhone     String?        @db.VarChar(32)
+  imgUrl             String?        @db.VarChar(5140)
+  createdAt          DateTime?      @default(now())
+  updatedAt          DateTime?      @default(now()) @updatedAt
+  deletedAt          DateTime?
+
+  sessionId BigInt  @unique
+  session   session @relation(fields: [sessionId], references: [id])
+  shifts    shift[]
+}
+
+enum FuelType {
+  GASOLINA_91
+  GASOLINA_95
+  DIESEL
+}
+
+enum ShiftStatus {
+  ABIERTO
+  LECTURA_BOMBAS
+  ARQUEO_CAJA
+  CERRADO
+}
+
+enum FlowType {
+  INGRESO
+  EGRESO
+}
+
+enum CashFlowCategory {
+  FLETE
+  COMPRA_OPERATIVA
+  GASTO_GENERAL
+  TARIFA
+  VENTA_COMBUSTIBLE
+  OTRO
+}
+
+model station {
+  id        BigInt    @id @default(autoincrement()) @db.BigInt
+  name      String    @db.VarChar(256)
+  code      String    @unique @db.VarChar(64)
+  rif       String    @db.VarChar(64)
+  address   String?   @db.VarChar(512)
+  isActive  Boolean   @default(true)
+  createdAt DateTime? @default(now())
+  updatedAt DateTime? @default(now()) @updatedAt
+  deletedAt DateTime?
+
+  tanks              tank[]
+  pumps              pump[]
+  shifts             shift[]
+  fuelReceipts       fuel_receipt[]
+  volumetricBalances volumetric_balance[]
+  cashFlows          cash_flow[]
+}
+
+model tank {
+  id           BigInt    @id @default(autoincrement()) @db.BigInt
+  stationId    BigInt    @db.BigInt
+  code         String    @db.VarChar(64)
+  fuelType     FuelType
+  maxCapacity  Decimal   @db.Decimal(12, 3)
+  currentStock Decimal   @db.Decimal(12, 3)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime? @default(now())
+  updatedAt    DateTime? @default(now()) @updatedAt
+  deletedAt    DateTime?
+
+  station            station              @relation(fields: [stationId], references: [id])
+  pumps              pump[]
+  fuelReceipts       fuel_receipt[]
+  volumetricBalances volumetric_balance[]
+
+  @@unique([stationId, code])
+}
+
+model pump {
+  id             BigInt    @id @default(autoincrement()) @db.BigInt
+  stationId      BigInt    @db.BigInt
+  tankId         BigInt    @db.BigInt
+  code           String    @db.VarChar(64)
+  hoseNumber     Int       @db.SmallInt
+  fuelType       FuelType
+  currentReading Decimal   @db.Decimal(12, 3)
+  isActive       Boolean   @default(true)
+  createdAt      DateTime? @default(now())
+  updatedAt      DateTime? @default(now()) @updatedAt
+  deletedAt      DateTime?
+
+  station       station         @relation(fields: [stationId], references: [id])
+  tank          tank            @relation(fields: [tankId], references: [id])
+  shiftReadings shift_reading[]
+
+  @@unique([stationId, code, hoseNumber])
+}
+
+model shift {
+  id                BigInt      @id @default(autoincrement()) @db.BigInt
+  stationId         BigInt      @db.BigInt
+  userId            BigInt      @db.BigInt
+  status            ShiftStatus @default(ABIERTO)
+  initialCashBs     Decimal     @db.Decimal(14, 2)
+  finalCashBs       Decimal?    @db.Decimal(14, 2)
+  initialCashUsd    Decimal     @db.Decimal(14, 2)
+  finalCashUsd      Decimal?    @db.Decimal(14, 2)
+  cashDifferenceBs  Decimal?    @db.Decimal(14, 2)
+  cashDifferenceUsd Decimal?    @db.Decimal(14, 2)
+  exchangeRate      Decimal     @db.Decimal(14, 4)
+  startTime         DateTime    @default(now())
+  endTime           DateTime?
+  notes             String?     @db.VarChar(1024)
+  createdAt         DateTime?   @default(now())
+  updatedAt         DateTime?   @default(now()) @updatedAt
+  deletedAt         DateTime?
+
+  station   station         @relation(fields: [stationId], references: [id])
+  user      user            @relation(fields: [userId], references: [id])
+  readings  shift_reading[]
+  cashFlows cash_flow[]
+}
+
+model shift_reading {
+  id             BigInt    @id @default(autoincrement()) @db.BigInt
+  shiftId        BigInt    @db.BigInt
+  pumpId         BigInt    @db.BigInt
+  fuelType       FuelType
+  initialReading Decimal   @db.Decimal(12, 3)
+  finalReading   Decimal   @db.Decimal(12, 3)
+  soldLiters     Decimal   @db.Decimal(12, 3)
+  unitPriceBs    Decimal   @db.Decimal(14, 2)
+  unitPriceUsd   Decimal   @db.Decimal(14, 2)
+  totalAmountBs  Decimal   @db.Decimal(14, 2)
+  totalAmountUsd Decimal   @db.Decimal(14, 2)
+  createdAt      DateTime? @default(now())
+  updatedAt      DateTime? @default(now()) @updatedAt
+
+  shift shift @relation(fields: [shiftId], references: [id])
+  pump  pump  @relation(fields: [pumpId], references: [id])
+}
+
+model fuel_receipt {
+  id            BigInt    @id @default(autoincrement()) @db.BigInt
+  stationId     BigInt    @db.BigInt
+  tankId        BigInt    @db.BigInt
+  invoiceNumber String    @db.VarChar(128)
+  controlNumber String    @db.VarChar(128)
+  fuelType      FuelType
+  volumeLiters  Decimal   @db.Decimal(12, 3)
+  costAmountBs  Decimal   @db.Decimal(14, 2)
+  costAmountUsd Decimal?  @db.Decimal(14, 2)
+  receivedAt    DateTime  @default(now())
+  notes         String?   @db.VarChar(1024)
+  createdAt     DateTime? @default(now())
+  updatedAt     DateTime? @default(now()) @updatedAt
+
+  station station @relation(fields: [stationId], references: [id])
+  tank    tank    @relation(fields: [tankId], references: [id])
+}
+
+model volumetric_balance {
+  id                   BigInt    @id @default(autoincrement()) @db.BigInt
+  stationId            BigInt    @db.BigInt
+  tankId               BigInt    @db.BigInt
+  date                 DateTime  @db.Date
+  initialInventory     Decimal   @db.Decimal(12, 3)
+  receipts             Decimal   @db.Decimal(12, 3)
+  totalSales           Decimal   @db.Decimal(12, 3)
+  theoreticalInventory Decimal   @db.Decimal(12, 3)
+  physicalMeasurement  Decimal   @db.Decimal(12, 3)
+  difference           Decimal   @db.Decimal(12, 3)
+  toleranceAlert       Boolean   @default(false)
+  notes                String?   @db.VarChar(1024)
+  createdAt            DateTime? @default(now())
+  updatedAt            DateTime? @default(now()) @updatedAt
+
+  station station @relation(fields: [stationId], references: [id])
+  tank    tank    @relation(fields: [tankId], references: [id])
+
+  @@unique([tankId, date])
+}
+
+model cash_flow {
+  id           BigInt           @id @default(autoincrement()) @db.BigInt
+  stationId    BigInt           @db.BigInt
+  shiftId      BigInt?          @db.BigInt
+  type         FlowType
+  category     CashFlowCategory
+  amountBs     Decimal          @db.Decimal(14, 2)
+  amountUsd    Decimal?         @db.Decimal(14, 2)
+  exchangeRate Decimal          @db.Decimal(14, 4)
+  description  String           @db.VarChar(512)
+  createdAt    DateTime?        @default(now())
+  updatedAt    DateTime?        @default(now()) @updatedAt
+
+  station station @relation(fields: [stationId], references: [id])
+  shift   shift?  @relation(fields: [shiftId], references: [id])
+}
+
+
+model session {
+  id            BigInt    @id @default(autoincrement()) @db.BigInt
+  email         String    @unique @db.VarChar(64)
+  password      String    @db.VarChar(2048)
+  lastAccess    DateTime?
+  timesLoggedIn Int       @default(0)
+  recoveryToken String?   @db.VarChar(2048)
+
+  type   session_type? @relation(fields: [typeId], references: [id])
+  typeId Int?          @db.SmallInt
+
+  rol   session_rol? @relation(fields: [rolId], references: [id])
+  rolId Int?         @db.SmallInt
+
+  user     user?
+  status   session_status? @relation(fields: [statusId], references: [id])
+  statusId Int?            @db.SmallInt
+}
+
+model session_type {
+  id          Int       @id @default(autoincrement()) @db.SmallInt
+  name        String    @db.VarChar(256)
+  description String?   @db.VarChar(512)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+  deletedAt   DateTime?
+
+  sessions session[]
+  roles    session_rol[]
+}
+
+model session_rol {
+  id          Int       @id @default(autoincrement()) @db.SmallInt
+  name        String    @db.VarChar(256)
+  description String?   @db.VarChar(1024)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now())
+  deletedAt   DateTime?
+
+  typeId Int          @db.SmallInt
+  type   session_type @relation(fields: [typeId], references: [id])
+
+  sessions session[]
+}
+
+model session_status {
+  id          Int       @id @default(autoincrement()) @db.SmallInt
+  name        String    @db.VarChar(256)
+  description String?   @db.VarChar(1024)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now())
+  deletedAt   DateTime?
+
+  sessions session[]
+}

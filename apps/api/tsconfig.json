@@ -23,7 +23,11 @@
       "@utils*": ["src/utils/*"],
       "@core/*": ["src/core/*"],
       "@auth/*": ["src/modules/auth/*"],
-      "@user/*": ["src/modules/user/*"]
+      "@user/*": ["src/modules/user/*"],
+      "@stations/*": ["src/modules/stations/*"],
+      "@shifts/*": ["src/modules/shifts/*"],
+      "@inventory/*": ["src/modules/inventory/*"],
+      "@cash-flow/*": ["src/modules/cash-flow/*"]
     }
   }
 }
