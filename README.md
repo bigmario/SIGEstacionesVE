@@ -137,7 +137,35 @@
 
 ---
 
-## 🏗 Architecture & Monorepo Structure
+## 🏗 Architecture
+
+The backend follows a **modular layered architecture** with the Repository pattern:
+
+```
+Request → Guards (JWT/Local/Roles) → Controller → Service → Repository → Prisma → PostgreSQL
+                                         ↕              ↕            ↕
+                                      DTOs/Pipes    EmailService   BaseRepository
+                                                                   ↕         ↕
+                                                           RedisCacheService  PaginationService
+                                                                   ↕
+                                                                 Redis
+```
+
+**Key architectural decisions:**
+
+- **Monorepo (NPM Workspaces):** De-couples `@sigestaciones/api` (Backend), `@sigestaciones/web` (Frontend), and `@sigestaciones/shared` (Shared DTOs & Enums).
+- **Controllers** handle HTTP concerns only (routing, request/response mapping)
+- **Services** contain business logic and orchestrate operations
+- **Repositories** extend `BaseRepository` and encapsulate all database access via Prisma
+- **BaseRepository** provides generic `findOne`, `findAll`, `findOneCached`, `findAllCached`, `softDelete`, `invalidateModelCache`, `buildFilters`, and pagination support
+- **DTOs** define and validate request/response shapes with decorators
+- **Guards** enforce authentication (JWT + Local) and role-based authorization
+- **Session/User separation** — Authentication credentials live in `session`, personal data in `user`
+- **Transactions** — User creation, shift closing, and inventory updates wrap database operations in Prisma interactive transactions
+
+---
+
+## 📁 Project Structure
 
 The project is structured as a **Monorepo (NPM Workspaces - Vía Ligera)**, decoupling backend, frontend, and shared libraries:
 
@@ -169,30 +197,6 @@ SiGEstacionesVE/ (Monorepo Root)
 ├── .env.example                       # Environment variables template
 └── package.json                       # Monorepo root configuration & scripts
 ```
-
-The backend follows a **modular layered architecture** with the Repository pattern:
-
-```
-Request → Guards (JWT/Local/Roles) → Controller → Service → Repository → Prisma → PostgreSQL
-                                         ↕              ↕            ↕
-                                      DTOs/Pipes    EmailService   BaseRepository
-                                                                   ↕         ↕
-                                                           RedisCacheService  PaginationService
-                                                                   ↕
-                                                                 Redis
-```
-
-**Key architectural decisions:**
-
-- **Monorepo (NPM Workspaces):** De-couples `@sigestaciones/api` (Backend), `@sigestaciones/web` (Frontend), and `@sigestaciones/shared` (Shared DTOs & Enums).
-- **Controllers** handle HTTP concerns only (routing, request/response mapping)
-- **Services** contain business logic and orchestrate operations
-- **Repositories** extend `BaseRepository` and encapsulate all database access via Prisma
-- **BaseRepository** provides generic `findOne`, `findAll`, `findOneCached`, `findAllCached`, `softDelete`, `invalidateModelCache`, `buildFilters`, and pagination support
-- **DTOs** define and validate request/response shapes with decorators
-- **Guards** enforce authentication (JWT + Local) and role-based authorization
-- **Session/User separation** — Authentication credentials live in `session`, personal data in `user`
-- **Transactions** — User creation, shift closing, and inventory updates wrap database operations in Prisma interactive transactions
 
 
 ---
