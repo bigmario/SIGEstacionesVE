@@ -111,6 +111,10 @@
       "^@core/(.*)$": "<rootDir>/core/$1",
       "^@auth/(.*)$": "<rootDir>/modules/auth/$1",
       "^@user/(.*)$": "<rootDir>/modules/user/$1",
+      "^@stations/(.*)$": "<rootDir>/modules/stations/$1",
+      "^@shifts/(.*)$": "<rootDir>/modules/shifts/$1",
+      "^@inventory/(.*)$": "<rootDir>/modules/inventory/$1",
+      "^@cash-flow/(.*)$": "<rootDir>/modules/cash-flow/$1",
       "^@utils(.*)$": "<rootDir>/utils$1"
     }
   }
