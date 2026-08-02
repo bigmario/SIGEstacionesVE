@@ -1,0 +1,13 @@
+{
+  "name": "@sigestaciones/web",
+  "version": "0.1.0",
+  "description": "SiGEstacionesVE - Cliente Frontend Angular (Fase Futura)",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "start": "echo \"El frontend Angular aún no ha sido inicializado. Consulta apps/web/README.md para las instrucciones de inicio.\"",
+    "build": "echo \"El frontend Angular aún no ha sido inicializado.\"",
+    "init:angular": "npx -y @angular/cli@latest new web --directory=. --style=scss --routing=true --standalone --skip-git",
+    "init:web": "npm run init:angular"
+  }
+}

@@ -1,121 +1,43 @@
 {
-  "name": "SiGEstacionesVE",
+  "name": "sigestacionesve-monorepo",
   "version": "0.1.0",
-  "description": "Sistema de Gestión de Estaciones de Servicio de Combustibles Venezolanas (SiGEstacionesVE)",
+  "description": "Sistema de Gestión de Estaciones de Servicio de Combustibles Venezolanas (SiGEstacionesVE) - Monorepo",
   "author": "Mario Castro <mariocastro.pva@gmail.com>",
   "private": true,
   "license": "MIT",
+  "workspaces": [
+    "apps/*",
+    "libs/*"
+  ],
   "engines": {
     "node": ">=22.0.0",
     "npm": ">=10.0.0"
   },
   "prisma": {
-    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seeder/seed.ts"
+    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} apps/api/prisma/seeder/seed.ts"
   },
   "scripts": {
-    "prebuild": "rimraf dist",
-    "build": "nest build",
-    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "start": "nest start",
-    "start:dev": "nest start --watch",
-    "start-with-prisma:debug": "npx prisma migrate dev && npx prisma db seed && nest start --debug --watch",
-    "start:docker-dev": "npx prisma migrate dev && npx prisma db seed && npm run start:dev",
-    "start:docker-prod": "npx prisma migrate deploy && node dist/prisma/seeder/seed.js && node dist/src/main",
-    "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/main",
-    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:cov": "jest --coverage",
-    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
-  },
-  "dependencies": {
-    "@keyv/redis": "^4.3.0",
-    "@nestjs-modules/mailer": "^2.3.0",
-    "@nestjs/cache-manager": "^3.0.0",
-    "@nestjs/common": "^11.0.0",
-    "@nestjs/config": "^4.0.0",
-    "@nestjs/core": "^11.0.0",
-    "@nestjs/jwt": "^11.0.0",
-    "@nestjs/mapped-types": "^2.1.0",
-    "@nestjs/passport": "^11.0.0",
-    "@nestjs/platform-express": "^11.0.0",
-    "@nestjs/swagger": "^11.0.0",
-    "@nestjs/throttler": "^6.5.0",
-    "@prisma/client": "^6.10.0",
-    "bcryptjs": "^2.4.3",
-    "cache-manager": "^6.0.0",
-    "class-transformer": "^0.5.1",
-    "class-validator": "^0.14.1",
-    "handlebars": "^4.7.8",
-    "helmet": "^8.3.0",
-    "nanoid": "^3.3.8",
-    "nodemailer": "^9.0.3",
-    "passport": "^0.7.0",
-    "passport-jwt": "^4.0.1",
-    "passport-local": "^1.0.0",
-    "reflect-metadata": "^0.2.2",
-    "rimraf": "^5.0.0",
-    "rxjs": "^7.8.1"
-  },
-  "overrides": {
-    "uuid": "^11.1.1",
-    "linkify-it": "^5.0.2"
+    "start": "npm run start:dev -w @sigestaciones/api",
+    "start:dev": "npm run start:dev -w @sigestaciones/api",
+    "start:api": "npm run start:dev -w @sigestaciones/api",
+    "start:web": "npm run start -w @sigestaciones/web",
+    "init:web": "npm run init:angular -w @sigestaciones/web",
+    "build": "npm run build -w @sigestaciones/api",
+    "build:all": "npm run build --workspaces --if-present",
+    "format": "prettier --write \"apps/**/*.ts\" \"libs/**/*.ts\"",
+    "lint": "npm run lint -w @sigestaciones/api",
+    "test": "npm run test -w @sigestaciones/api",
+    "test:cov": "npm run test:cov -w @sigestaciones/api",
+    "test:e2e": "npm run test:e2e -w @sigestaciones/api",
+    "prisma:generate": "npx prisma generate --schema=apps/api/prisma/schema.prisma",
+    "prisma:migrate": "npx prisma migrate dev --schema=apps/api/prisma/schema.prisma",
+    "prisma:seed": "npx prisma db seed --schema=apps/api/prisma/schema.prisma",
+    "prisma:studio": "npx prisma studio --schema=apps/api/prisma/schema.prisma",
+    "start:docker-dev": "npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma && npx prisma db seed --schema=apps/api/prisma/schema.prisma && npm run start:dev -w @sigestaciones/api",
+    "start:docker-prod": "npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma && node apps/api/dist/prisma/seeder/seed.js && node apps/api/dist/src/main"
   },
   "devDependencies": {
-    "@eslint/js": "^9.0.0",
-    "@nestjs/cli": "^11.0.0",
-    "@nestjs/schematics": "^11.0.0",
-    "@nestjs/testing": "^11.0.0",
-    "@types/bcryptjs": "^2.4.6",
-    "@types/jest": "^29.5.0",
-    "@types/node": "^22.0.0",
-    "@types/nodemailer": "^6.4.17",
-    "@types/passport-jwt": "^4.0.1",
-    "@types/passport-local": "^1.0.38",
-    "@types/supertest": "^6.0.0",
-    "eslint": "^9.0.0",
-    "eslint-config-prettier": "^10.0.0",
-    "eslint-plugin-prettier": "^5.4.0",
-    "globals": "^16.0.0",
-    "jest": "^29.7.0",
     "prettier": "^3.5.0",
-    "prisma": "^6.10.0",
-    "source-map-support": "^0.5.21",
-    "supertest": "^7.0.0",
-    "ts-jest": "^29.4.0",
-    "ts-loader": "^9.5.0",
-    "ts-node": "^10.9.2",
-    "tsconfig-paths": "^4.2.0",
-    "typescript": "~5.7.0",
-    "typescript-eslint": "^8.0.0"
-  },
-  "jest": {
-    "moduleFileExtensions": [
-      "js",
-      "json",
-      "ts"
-    ],
-    "rootDir": "src",
-    "testRegex": ".*\\.spec\\.ts$",
-    "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
-    },
-    "collectCoverageFrom": [
-      "**/*.(t|j)s"
-    ],
-    "coverageDirectory": "../coverage",
-    "testEnvironment": "node",
-    "moduleNameMapper": {
-      "^@core/(.*)$": "<rootDir>/core/$1",
-      "^@auth/(.*)$": "<rootDir>/modules/auth/$1",
-      "^@user/(.*)$": "<rootDir>/modules/user/$1",
-      "^@stations/(.*)$": "<rootDir>/modules/stations/$1",
-      "^@shifts/(.*)$": "<rootDir>/modules/shifts/$1",
-      "^@inventory/(.*)$": "<rootDir>/modules/inventory/$1",
-      "^@cash-flow/(.*)$": "<rootDir>/modules/cash-flow/$1",
-      "^@utils(.*)$": "<rootDir>/utils$1"
-    }
+    "rimraf": "^5.0.0"
   }
 }

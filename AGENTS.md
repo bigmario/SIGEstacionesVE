@@ -10,7 +10,7 @@ Este archivo define las reglas de arquitectura, patrones de diseño y restriccio
 - **ORM:** Prisma 6
 - **Base de Datos:** PostgreSQL 16
 - **Caché & Revocación:** Redis 7 (@nestjs/cache-manager + @keyv/redis)
-- **Autenticación & Autorización:** Passport.js (JWT + Local), Roles (`SUPER_ADMIN`, `ADMIN`, `PROGRAMADOR`, `VENDEDOR`)
+- **Autenticación & Autorización:** Passport.js (JWT + Local), Roles (`SUPER_ADMIN`, `ADMIN`, `SUPERVISOR`, `ISLERO`)
 - **Documentación:** Swagger / OpenAPI 3.0
 
 ---
@@ -32,7 +32,7 @@ Este archivo define las reglas de arquitectura, patrones de diseño y restriccio
 ### 3. Control de Acceso y Seguridad (RBAC)
 
 - La autenticación JWT es global (`APP_GUARD`).
-- Utilizar los decoradores `@Roles(Role.ADMIN, Role.VENDEDOR)` en controladores o métodos para restringir accesos.
+- Utilizar los decoradores `@Roles(Role.ADMIN, Role.ISLERO)` en controladores o métodos para restringir accesos.
 - Las mutaciones de datos que afecten inventarios o cierres financieros requieren rol de administración o supervisión.
 
 ### 4. Transacciones e Inventarios

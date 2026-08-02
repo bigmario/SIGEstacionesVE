@@ -93,7 +93,7 @@
 
 - **JWT Authentication** — Login with Local Strategy + JWT tokens (8h expiry) with unique JTI per token
 - **Token Blacklisting** — Secure logout via Redis-based JWT revocation by JTI with automatic TTL expiry
-- **Role-Based Access Control (RBAC)** — Decorator-driven authorization (`SUPER_ADMIN`, `ADMIN`, `PROGRAMADOR`, `VENDEDOR`)
+- **Role-Based Access Control (RBAC)** — Decorator-driven authorization (`SUPER_ADMIN`, `ADMIN`, `SUPERVISOR`, `ISLERO`)
 - **Gestión de Estaciones, Tanques y Bombas (`/stations`)** — Administración de estaciones de servicio, tanques de almacenamiento y bombas/mangueras con contadores totalizadores
 - **Gestión de Turnos y Ventas (`/shifts`)** — Flujo completo de turno (`ABIERTO` -> `LECTURA_BOMBAS` -> `ARQUEO_CAJA` -> `CERRADO`) con **Cierre Transaccional Interactivo**, descuento de inventario en tanques con validación anti-saldo negativo (`UnprocessableEntityException`) y cuadre de caja (Bs. y USD)
 - **Control de Inventario y Balance Volumétrico (`/inventory`)** — Registro de recepciones de combustible (cisternas/gandolas) por tanque con factura y control, y cálculo del Balance Volumétrico Diario ($\text{Teórico} = \text{Inicial} + \text{Recepciones} - \text{Ventas}$) vs. varillaje/medición física (merma) con emisión de alerta de tolerancia
@@ -118,7 +118,10 @@
 
 | Category         | Technology                                                             |
 | ---------------- | ---------------------------------------------------------------------- |
-| **Framework**    | [NestJS 11](https://nestjs.com/)                                       |
+| **Architecture** | Monorepo (NPM Workspaces - Vía Ligera)                                 |
+| **Backend**      | [NestJS 11](https://nestjs.com/)                                       |
+| **Frontend**     | Angular 18/19 *(Fase Futura - Preparado en `apps/web`)*               |
+| **Shared Libs**   | TypeScript Shared DTOs (`libs/shared`)                                 |
 | **Language**     | [TypeScript 5.7](https://www.typescriptlang.org/)                      |
 | **ORM**          | [Prisma 6](https://www.prisma.io/)                                     |
 | **Database**     | [PostgreSQL 16](https://www.postgresql.org/)                           |
@@ -134,9 +137,40 @@
 
 ---
 
-## 🏗 Architecture
+## 🏗 Architecture & Monorepo Structure
 
-The project follows a **modular layered architecture** with the Repository pattern:
+The project is structured as a **Monorepo (NPM Workspaces - Vía Ligera)**, decoupling backend, frontend, and shared libraries:
+
+```
+SiGEstacionesVE/ (Monorepo Root)
+├── apps/
+│   ├── api/                           # Backend REST API (NestJS 11 + Prisma 6)
+│   │   ├── prisma/                    # Schema, migrations, and seeders
+│   │   ├── src/                       # Controllers, services, repositories, modules
+│   │   │   ├── core/                  # Shared infrastructure (Prisma, Cache, Mail, Pagination)
+│   │   │   ├── modules/               # Domain modules (auth, user, stations, shifts, inventory, cash-flow)
+│   │   │   └── utils/                 # Utilities
+│   │   ├── test/                      # E2E test files
+│   │   ├── nest-cli.json              # NestJS CLI configuration
+│   │   ├── tsconfig.json              # TypeScript configuration
+│   │   └── package.json               # @sigestaciones/api workspace
+│   └── web/                           # Frontend SPA (Angular 18/19 - Base lista para inicio)
+│       ├── README.md                  # Guía de inicialización para Angular
+│       └── package.json               # @sigestaciones/web workspace
+├── libs/
+│   └── shared/                        # Shared Types, DTOs & Enums library
+│       ├── src/
+│       │   └── index.ts               # Shared enums (Role, ShiftStatus, IdentityPrefix, etc.)
+│       ├── tsconfig.json
+│       └── package.json               # @sigestaciones/shared workspace
+├── Dockerfile                         # Multi-stage Docker build for Monorepo
+├── docker-compose.yaml                # Docker Compose services (dev, prod, postgres, redis)
+├── wait-for-postgres.sh               # TCP wait-for script for Docker
+├── .env.example                       # Environment variables template
+└── package.json                       # Monorepo root configuration & scripts
+```
+
+The backend follows a **modular layered architecture** with the Repository pattern:
 
 ```
 Request → Guards (JWT/Local/Roles) → Controller → Service → Repository → Prisma → PostgreSQL
@@ -150,6 +184,7 @@ Request → Guards (JWT/Local/Roles) → Controller → Service → Repository �
 
 **Key architectural decisions:**
 
+- **Monorepo (NPM Workspaces):** De-couples `@sigestaciones/api` (Backend), `@sigestaciones/web` (Frontend), and `@sigestaciones/shared` (Shared DTOs & Enums).
 - **Controllers** handle HTTP concerns only (routing, request/response mapping)
 - **Services** contain business logic and orchestrate operations
 - **Repositories** extend `BaseRepository` and encapsulate all database access via Prisma
@@ -157,57 +192,8 @@ Request → Guards (JWT/Local/Roles) → Controller → Service → Repository �
 - **DTOs** define and validate request/response shapes with decorators
 - **Guards** enforce authentication (JWT + Local) and role-based authorization
 - **Session/User separation** — Authentication credentials live in `session`, personal data in `user`
-- **Transactions** — User creation wraps session + user records in Prisma interactive transactions
+- **Transactions** — User creation, shift closing, and inventory updates wrap database operations in Prisma interactive transactions
 
----
-
-## 📁 Project Structure
-
-```
-SIGEstacionesVE/
-├── prisma/
-│   ├── migrations/                    # Database migration history
-│   ├── seeder/
-│   │   └── seed.ts                    # Database seed script (roles, statuses, admin)
-│   └── schema.prisma                  # Prisma schema (models, enums, relations)
-├── src/
-│   ├── core/                          # Shared cross-cutting infrastructure
-│   │   ├── dtos/                      # Base DTOs (BaseCreateBodyDto, BaseUpdateBodyDto, BaseQueryParams)
-│   │   ├── email/                     # Email module
-│   │   │   ├── services/              # EmailService (confirmation, recovery)
-│   │   │   └── templates/             # Handlebars email templates
-│   │   │       └── confirm-email.hbs
-│   │   ├── pagination/                # Pagination module
-│   │   │   ├── services/              # PaginationService (URL builder, paginator)
-│   │   │   ├── interfaces/            # Paginated result interface
-│   │   │   └── types/                 # Pagination types
-│   │   ├── prisma/                    # Prisma module
-│   │   │   ├── services/              # PrismaService (connection lifecycle)
-│   │   │   ├── repositories/          # BaseRepository (generic CRUD, search, soft delete)
-│   │   │   └── types/                 # Prisma utility types
-│   │   └── types/                     # Shared types (FindAllOptions, FindManyArgs)
-│   ├── modules/
-│   │   ├── auth/                      # Authentication module
-│   │   ├── cash-flow/                 # Cash flow & petty cash module (income/expenses)
-│   │   ├── inventory/                 # Fuel receipts & volumetric balance module
-│   │   ├── shifts/                    # Shifts & sales management module (interactive transactions)
-│   │   ├── stations/                  # Stations, tanks, and pumps/hoses module
-│   │   └── user/                      # User management module
-│   ├── utils/                         # Utility functions
-│   │   ├── files-uploads.utils.ts     # Multer file rename with nanoid
-│   │   └── objects.utils.ts           # Object helpers (isEmptyObject)
-│   ├── app.module.ts                  # Root module (config, cache, guards)
-│   ├── app.controller.ts             # Root greeting endpoint
-│   └── main.ts                        # Bootstrap, Swagger, validation
-├── test/                              # E2E test files
-├── docker-compose.yaml                # Docker services (dev, prod, postgres, redis)
-├── Dockerfile                         # Multi-stage Docker build (Node 22)
-├── wait-for-postgres.sh               # TCP wait-for script for Docker
-├── .env.example                       # Environment variables template
-├── nest-cli.json                      # NestJS CLI + Swagger plugin config
-├── tsconfig.json                      # TypeScript config with path aliases
-└── package.json                       # Dependencies, scripts, Jest config
-```
 
 ---
 
@@ -297,7 +283,7 @@ The seed script creates the following data inside a transaction:
 | ------------------ | -------------------------------------------------------------------------- |
 | **Session Statuses** | `ACTIVO` (id=1), `BANEADO` (id=2)                                       |
 | **Session Type**   | `User` (id=1)                                                              |
-| **Roles**          | `Super Admin` (1), `Admin` (2), `Programador` (3), `Vendedor` (4)          |
+| **Roles**          | `Super Admin` (1), `Admin` (2), `Supervisor` (3), `Islero` (4)             |
 | **Admin User**     | email: `admin@mail.com`, password: value of `MASTER_PASS`, role: Super Admin |
 
 ### 4. Running the Application
@@ -414,14 +400,14 @@ The documentation includes:
 
 | Method   | Endpoint                | Access                            | Description                          |
 | -------- | ----------------------- | --------------------------------- | ------------------------------------ |
-| `POST`   | `/stations`             | 🔒 ADMIN / SUPER_ADMIN / PROGRAMADOR | Crear estación de servicio           |
+| `POST`   | `/stations`             | 🔒 ADMIN / SUPER_ADMIN / SUPERVISOR | Crear estación de servicio           |
 | `GET`    | `/stations`             | 🔒 Bearer                         | Obtener todas las estaciones         |
 | `GET`    | `/stations/:id`         | 🔒 Bearer                         | Obtener estación por ID              |
 | `PATCH`  | `/stations/:id`         | 🔒 ADMIN / SUPER_ADMIN            | Actualizar estación                  |
-| `POST`   | `/stations/tanks`       | 🔒 ADMIN / SUPER_ADMIN / PROGRAMADOR | Crear tanque de combustible          |
+| `POST`   | `/stations/tanks`       | 🔒 ADMIN / SUPER_ADMIN / SUPERVISOR | Crear tanque de combustible          |
 | `GET`    | `/stations/:id/tanks`   | 🔒 Bearer                         | Obtener tanques por estación         |
 | `PATCH`  | `/stations/tanks/:id`   | 🔒 ADMIN / SUPER_ADMIN            | Actualizar tanque                    |
-| `POST`   | `/stations/pumps`       | 🔒 ADMIN / SUPER_ADMIN / PROGRAMADOR | Crear bomba / surtidor               |
+| `POST`   | `/stations/pumps`       | 🔒 ADMIN / SUPER_ADMIN / SUPERVISOR | Crear bomba / surtidor               |
 | `GET`    | `/stations/:id/pumps`   | 🔒 Bearer                         | Obtener bombas por estación          |
 | `PATCH`  | `/stations/pumps/:id`   | 🔒 ADMIN / SUPER_ADMIN            | Actualizar bomba / surtidor          |
 
@@ -429,27 +415,27 @@ The documentation includes:
 
 | Method   | Endpoint                | Access                            | Description                                        |
 | -------- | ----------------------- | --------------------------------- | -------------------------------------------------- |
-| `POST`   | `/shifts/open`          | 🔒 VENDEDOR / ADMIN / SUPER_ADMIN | Apertura de turno con fondo inicial y tasa oficial |
+| `POST`   | `/shifts/open`          | 🔒 ISLERO / SUPERVISOR / ADMIN / SUPER_ADMIN | Apertura de turno con fondo inicial y tasa oficial |
 | `GET`    | `/shifts/:id`           | 🔒 Bearer                         | Obtener información del turno por ID               |
 | `GET`    | `/shifts/station/:id`   | 🔒 Bearer                         | Obtener turnos por estación                        |
-| `POST`   | `/shifts/:id/readings`  | 🔒 VENDEDOR / ADMIN / SUPER_ADMIN | Registrar lecturas finales de bombas               |
-| `POST`   | `/shifts/:id/cash-count`| 🔒 VENDEDOR / ADMIN / SUPER_ADMIN | Registrar arqueo final de caja (Bs. y USD)         |
-| `POST`   | `/shifts/:id/close`     | 🔒 VENDEDOR / ADMIN / SUPER_ADMIN | **Cierre transaccional interactivo** y cuadre      |
+| `POST`   | `/shifts/:id/readings`  | 🔒 ISLERO / SUPERVISOR / ADMIN / SUPER_ADMIN | Registrar lecturas finales de bombas               |
+| `POST`   | `/shifts/:id/cash-count`| 🔒 ISLERO / SUPERVISOR / ADMIN / SUPER_ADMIN | Registrar arqueo final de caja (Bs. y USD)         |
+| `POST`   | `/shifts/:id/close`     | 🔒 ISLERO / SUPERVISOR / ADMIN / SUPER_ADMIN | **Cierre transaccional interactivo** y cuadre      |
 
 ### Inventory (`/inventory`)
 
 | Method   | Endpoint                                 | Access                            | Description                                      |
 | -------- | ---------------------------------------- | --------------------------------- | ------------------------------------------------ |
-| `POST`   | `/inventory/receipts`                    | 🔒 ADMIN / SUPER_ADMIN / PROGRAMADOR | Registrar recepción de cisterna (gandola)        |
+| `POST`   | `/inventory/receipts`                    | 🔒 ADMIN / SUPER_ADMIN / SUPERVISOR | Registrar recepción de cisterna (gandola)        |
 | `GET`    | `/inventory/receipts/station/:stationId` | 🔒 Bearer                         | Obtener recepciones de combustible por estación  |
-| `POST`   | `/inventory/volumetric-balance`          | 🔒 ADMIN / SUPER_ADMIN / PROGRAMADOR | Generar balance volumétrico diario (varillaje)   |
+| `POST`   | `/inventory/volumetric-balance`          | 🔒 ADMIN / SUPER_ADMIN / SUPERVISOR | Generar balance volumétrico diario (varillaje)   |
 | `GET`    | `/inventory/volumetric-balance/station/:stationId` | 🔒 Bearer               | Obtener balances volumétricos por estación       |
 
 ### Cash Flow (`/cash-flow`)
 
 | Method   | Endpoint                | Access                            | Description                                        |
 | -------- | ----------------------- | --------------------------------- | -------------------------------------------------- |
-| `POST`   | `/cash-flow`            | 🔒 VENDEDOR / ADMIN / SUPER_ADMIN | Registrar ingreso o egreso de caja chica           |
+| `POST`   | `/cash-flow`            | 🔒 ISLERO / SUPERVISOR / ADMIN / SUPER_ADMIN | Registrar ingreso o egreso de caja chica           |
 | `GET`    | `/cash-flow/station/:id`| 🔒 Bearer                         | Obtener movimientos de caja chica por estación     |
 | `GET`    | `/cash-flow/shift/:id`  | 🔒 Bearer                         | Obtener movimientos de caja chica por turno        |
 
@@ -508,8 +494,8 @@ createUser(@Body() dto: CreateUserDto) { ... }
 | -------------- | --- | --------------------------- |
 | `SUPER_ADMIN`  | 1   | Full system access          |
 | `ADMIN`        | 2   | Administrative access       |
-| `PROGRAMADOR`  | 3   | Developer access            |
-| `VENDEDOR`     | 4   | Sales access                |
+| `SUPERVISOR`   | 3   | Station supervisor access   |
+| `ISLERO`       | 4   | Pump operator / sales access |
 
 ### Password Recovery Flow
 

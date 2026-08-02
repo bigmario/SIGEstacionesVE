@@ -1,26 +1,36 @@
 # Dockerfile
-FROM node:22-alpine As development
+FROM node:22-alpine AS development
 WORKDIR /usr/src/app
 
-COPY --chown=node:node package*.json ./
-COPY --chown=node:node prisma ./prisma/
+RUN apk update && apk add bash
+
+COPY package*.json ./
+COPY apps/api/package*.json ./apps/api/
+COPY apps/web/package*.json ./apps/web/
+COPY libs/shared/package*.json ./libs/shared/
 RUN npm ci
-COPY --chown=node:node . .
-RUN apk update && apk add bash \
-    && find . -name '*.sh' -exec sed -i 's/\r$//' {} +
-RUN npx prisma generate
-RUN npm run build
 
-USER node
+COPY . .
+RUN find . -name '*.sh' -exec sed -i 's/\r$//' {} +
+RUN npx prisma generate --schema=apps/api/prisma/schema.prisma
+RUN npm run build -w @sigestaciones/api
 
-FROM node:22-alpine as production
+FROM node:22-alpine AS production
 ARG NODE_ENV=production
 ENV NODE_ENV=${NODE_ENV}
 WORKDIR /usr/src/app
-COPY --chown=node:node package*.json ./
-COPY --chown=node:node prisma ./prisma/
-RUN npm ci --omit=dev
-RUN npx prisma generate
-COPY --chown=node:node --from=development /usr/src/app/dist ./dist
+
 RUN apk update && apk add bash
-CMD ["node", "dist/src/main"]
+
+COPY package*.json ./
+COPY apps/api/package*.json ./apps/api/
+COPY apps/web/package*.json ./apps/web/
+COPY libs/shared/package*.json ./libs/shared/
+RUN npm ci --omit=dev
+
+COPY . .
+RUN find . -name '*.sh' -exec sed -i 's/\r$//' {} +
+RUN npx prisma generate --schema=apps/api/prisma/schema.prisma
+COPY --chown=node:node --from=development /usr/src/app/apps/api/dist ./apps/api/dist
+
+CMD ["node", "apps/api/dist/src/main"]
