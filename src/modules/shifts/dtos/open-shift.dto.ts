@@ -1,5 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsNotEmpty, IsNumberString, IsOptional, IsString } from 'class-validator';
+import {
+  IsInt,
+  IsNotEmpty,
+  IsNumberString,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class OpenShiftDto {
   @ApiProperty({ description: 'ID de la estación de servicio', example: 1 })
@@ -12,17 +18,26 @@ export class OpenShiftDto {
   @IsNotEmpty()
   userId: number;
 
-  @ApiProperty({ description: 'Fondo de caja inicial en Bolívares (Decimal 14,2)', example: '1500.00' })
+  @ApiProperty({
+    description: 'Fondo de caja inicial en Bolívares (Decimal 14,2)',
+    example: '1500.00',
+  })
   @IsNumberString()
   @IsNotEmpty()
   initialCashBs: string;
 
-  @ApiProperty({ description: 'Fondo de caja inicial en USD (Decimal 14,2)', example: '50.00' })
+  @ApiProperty({
+    description: 'Fondo de caja inicial en USD (Decimal 14,2)',
+    example: '50.00',
+  })
   @IsNumberString()
   @IsNotEmpty()
   initialCashUsd: string;
 
-  @ApiProperty({ description: 'Tasa oficial de cambio (Decimal 14,4)', example: '36.5000' })
+  @ApiProperty({
+    description: 'Tasa oficial de cambio (Decimal 14,4)',
+    example: '36.5000',
+  })
   @IsNumberString()
   @IsNotEmpty()
   exchangeRate: string;

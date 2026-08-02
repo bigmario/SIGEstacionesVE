@@ -1,6 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { FuelType } from '@prisma/client';
-import { IsEnum, IsInt, IsNotEmpty, IsNumberString, IsString, MaxLength } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsNumberString,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 export class CreatePumpDto {
   @ApiProperty({ description: 'ID de la estación de servicio', example: 1 })
@@ -24,12 +31,20 @@ export class CreatePumpDto {
   @IsNotEmpty()
   hoseNumber: number;
 
-  @ApiProperty({ description: 'Tipo de combustible de la manguera', enum: FuelType, example: FuelType.GASOLINA_95 })
+  @ApiProperty({
+    description: 'Tipo de combustible de la manguera',
+    enum: FuelType,
+    example: FuelType.GASOLINA_95,
+  })
   @IsEnum(FuelType)
   @IsNotEmpty()
   fuelType: FuelType;
 
-  @ApiProperty({ description: 'Lectura inicial/actual del contador totalizador (Decimal 12,3)', example: '124500.500' })
+  @ApiProperty({
+    description:
+      'Lectura inicial/actual del contador totalizador (Decimal 12,3)',
+    example: '124500.500',
+  })
   @IsNumberString()
   @IsNotEmpty()
   currentReading: string;

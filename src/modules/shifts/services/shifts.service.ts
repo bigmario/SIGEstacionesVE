@@ -158,7 +158,10 @@ export class ShiftsService {
       for (const reading of shift.readings) {
         const tankId = Number(reading.pump.tankId);
         const currentSales = tankSalesMap.get(tankId) || new Decimal(0);
-        tankSalesMap.set(tankId, currentSales.plus(new Decimal(reading.soldLiters)));
+        tankSalesMap.set(
+          tankId,
+          currentSales.plus(new Decimal(reading.soldLiters)),
+        );
       }
 
       for (const [tankId, totalSoldLiters] of tankSalesMap.entries()) {
@@ -206,7 +209,9 @@ export class ShiftsService {
 
       for (const flow of shift.cashFlows) {
         const amountBs = new Decimal(flow.amountBs);
-        const amountUsd = flow.amountUsd ? new Decimal(flow.amountUsd) : new Decimal(0);
+        const amountUsd = flow.amountUsd
+          ? new Decimal(flow.amountUsd)
+          : new Decimal(0);
 
         if (flow.type === 'INGRESO') {
           cashFlowIngresosBs = cashFlowIngresosBs.plus(amountBs);

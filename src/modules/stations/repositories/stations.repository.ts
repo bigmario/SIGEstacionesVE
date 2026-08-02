@@ -159,7 +159,8 @@ export class StationsRepository extends BaseRepository {
     if (dto.code) data.code = dto.code;
     if (dto.hoseNumber) data.hoseNumber = dto.hoseNumber;
     if (dto.fuelType) data.fuelType = dto.fuelType;
-    if (dto.currentReading) data.currentReading = new Decimal(dto.currentReading);
+    if (dto.currentReading)
+      data.currentReading = new Decimal(dto.currentReading);
 
     return runPrismaWrite(
       () =>

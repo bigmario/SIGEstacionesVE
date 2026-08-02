@@ -94,9 +94,14 @@
 - **JWT Authentication** — Login with Local Strategy + JWT tokens (8h expiry) with unique JTI per token
 - **Token Blacklisting** — Secure logout via Redis-based JWT revocation by JTI with automatic TTL expiry
 - **Role-Based Access Control (RBAC)** — Decorator-driven authorization (`SUPER_ADMIN`, `ADMIN`, `PROGRAMADOR`, `VENDEDOR`)
+- **Gestión de Estaciones, Tanques y Bombas (`/stations`)** — Administración de estaciones de servicio, tanques de almacenamiento y bombas/mangueras con contadores totalizadores
+- **Gestión de Turnos y Ventas (`/shifts`)** — Flujo completo de turno (`ABIERTO` -> `LECTURA_BOMBAS` -> `ARQUEO_CAJA` -> `CERRADO`) con **Cierre Transaccional Interactivo**, descuento de inventario en tanques con validación anti-saldo negativo (`UnprocessableEntityException`) y cuadre de caja (Bs. y USD)
+- **Control de Inventario y Balance Volumétrico (`/inventory`)** — Registro de recepciones de combustible (cisternas/gandolas) por tanque con factura y control, y cálculo del Balance Volumétrico Diario ($\text{Teórico} = \text{Inicial} + \text{Recepciones} - \text{Ventas}$) vs. varillaje/medición física (merma) con emisión de alerta de tolerancia
+- **Flujo de Caja Chica (`/cash-flow`)** — Registro de ingresos y egresos (fletes, compras operativas, gastos generales, tarifas) vinculados opcionalmente al turno activo
+- **Manejo Numérico de Alta Precisión** — Uso estricto de tipos `Decimal` en Prisma y TypeScript (`@db.Decimal(12, 3)` para litros, `@db.Decimal(14, 2)` para montos y `@db.Decimal(14, 4)` para tasa de cambio)
 - **Password Recovery** — Full email-based password recovery flow with time-limited tokens
 - **Session Management** — Separated user/session model with login tracking and status management
-- **Prisma ORM** — Type-safe database access with migrations, seeding, soft deletes, and transactions
+- **Prisma ORM** — Type-safe database access with migrations, seeding, soft deletes, and interactive transactions
 - **Swagger / OpenAPI** — Auto-generated interactive API documentation with OAuth2 password flow
 - **Email Notifications** — Transactional emails via Nodemailer with Handlebars templates
 - **Redis Caching** — Resilient cache-aside layer with automatic invalidation, prefix-based key management, and graceful degradation (fallback to DB when Redis is unavailable)
@@ -104,7 +109,7 @@
 - **Request Validation** — DTO-based validation with `class-validator` and `class-transformer`
 - **Base Repository** — Generic repository pattern with built-in search filtering, pagination, soft deletes, and **cached query methods** (`findOneCached`, `findAllCached`, `invalidateModelCache`)
 - **Docker Ready** — Multi-stage Dockerfile with `docker-compose` for development and production
-- **Path Aliases** — Clean imports via `@core/*`, `@auth/*`, `@user/*`, `@utils`
+- **Path Aliases** — Clean imports via `@core/*`, `@auth/*`, `@user/*`, `@stations/*`, `@shifts/*`, `@inventory/*`, `@cash-flow/*`, `@utils`
 - **File Uploads** — Multer-compatible file rename utility using nanoid
 
 ---
@@ -183,23 +188,11 @@ SIGEstacionesVE/
 │   │   └── types/                     # Shared types (FindAllOptions, FindManyArgs)
 │   ├── modules/
 │   │   ├── auth/                      # Authentication module
-│   │   │   ├── constants/             # Route constants
-│   │   │   ├── controllers/           # Auth endpoints (login, logout, recovery, etc.)
-│   │   │   ├── decorators/            # @Public(), @Roles()
-│   │   │   ├── dto/                   # LoginDto, RecoveryDto, ResetPassDto
-│   │   │   ├── guards/               # JwtAuthGuard, LocalAuthGuard, RolesGuard
-│   │   │   ├── interfaces/            # IRequest interface
-│   │   │   ├── models/               # Role enum
-│   │   │   ├── repositories/          # Auth DB operations
-│   │   │   ├── services/              # Auth business logic (JWT, bcrypt, recovery)
-│   │   │   └── strategies/            # Passport Local + JWT strategies
+│   │   ├── cash-flow/                 # Cash flow & petty cash module (income/expenses)
+│   │   ├── inventory/                 # Fuel receipts & volumetric balance module
+│   │   ├── shifts/                    # Shifts & sales management module (interactive transactions)
+│   │   ├── stations/                  # Stations, tanks, and pumps/hoses module
 │   │   └── user/                      # User management module
-│   │       ├── constants/             # Route constants
-│   │       ├── controllers/           # User CRUD endpoints + roles/statuses
-│   │       ├── dtos/                  # CreateUserDto, UpdateUserDto, QueryParams
-│   │       ├── repositories/          # User DB operations (transactions)
-│   │       ├── services/              # User business logic
-│   │       └── types/                 # User-specific types
 │   ├── utils/                         # Utility functions
 │   │   ├── files-uploads.utils.ts     # Multer file rename with nanoid
 │   │   └── objects.utils.ts           # Object helpers (isEmptyObject)
@@ -416,6 +409,50 @@ The documentation includes:
 | `GET`    | `/users/:id`          | 🔒 Bearer                    | Get user by ID                 |
 | `PATCH`  | `/users/:id`          | 🔒 ADMIN / SUPER_ADMIN       | Update user                    |
 | `DELETE` | `/users/:id`          | 🔒 ADMIN / SUPER_ADMIN       | Soft delete user               |
+
+### Stations (`/stations`)
+
+| Method   | Endpoint                | Access                            | Description                          |
+| -------- | ----------------------- | --------------------------------- | ------------------------------------ |
+| `POST`   | `/stations`             | 🔒 ADMIN / SUPER_ADMIN / PROGRAMADOR | Crear estación de servicio           |
+| `GET`    | `/stations`             | 🔒 Bearer                         | Obtener todas las estaciones         |
+| `GET`    | `/stations/:id`         | 🔒 Bearer                         | Obtener estación por ID              |
+| `PATCH`  | `/stations/:id`         | 🔒 ADMIN / SUPER_ADMIN            | Actualizar estación                  |
+| `POST`   | `/stations/tanks`       | 🔒 ADMIN / SUPER_ADMIN / PROGRAMADOR | Crear tanque de combustible          |
+| `GET`    | `/stations/:id/tanks`   | 🔒 Bearer                         | Obtener tanques por estación         |
+| `PATCH`  | `/stations/tanks/:id`   | 🔒 ADMIN / SUPER_ADMIN            | Actualizar tanque                    |
+| `POST`   | `/stations/pumps`       | 🔒 ADMIN / SUPER_ADMIN / PROGRAMADOR | Crear bomba / surtidor               |
+| `GET`    | `/stations/:id/pumps`   | 🔒 Bearer                         | Obtener bombas por estación          |
+| `PATCH`  | `/stations/pumps/:id`   | 🔒 ADMIN / SUPER_ADMIN            | Actualizar bomba / surtidor          |
+
+### Shifts (`/shifts`)
+
+| Method   | Endpoint                | Access                            | Description                                        |
+| -------- | ----------------------- | --------------------------------- | -------------------------------------------------- |
+| `POST`   | `/shifts/open`          | 🔒 VENDEDOR / ADMIN / SUPER_ADMIN | Apertura de turno con fondo inicial y tasa oficial |
+| `GET`    | `/shifts/:id`           | 🔒 Bearer                         | Obtener información del turno por ID               |
+| `GET`    | `/shifts/station/:id`   | 🔒 Bearer                         | Obtener turnos por estación                        |
+| `POST`   | `/shifts/:id/readings`  | 🔒 VENDEDOR / ADMIN / SUPER_ADMIN | Registrar lecturas finales de bombas               |
+| `POST`   | `/shifts/:id/cash-count`| 🔒 VENDEDOR / ADMIN / SUPER_ADMIN | Registrar arqueo final de caja (Bs. y USD)         |
+| `POST`   | `/shifts/:id/close`     | 🔒 VENDEDOR / ADMIN / SUPER_ADMIN | **Cierre transaccional interactivo** y cuadre      |
+
+### Inventory (`/inventory`)
+
+| Method   | Endpoint                                 | Access                            | Description                                      |
+| -------- | ---------------------------------------- | --------------------------------- | ------------------------------------------------ |
+| `POST`   | `/inventory/receipts`                    | 🔒 ADMIN / SUPER_ADMIN / PROGRAMADOR | Registrar recepción de cisterna (gandola)        |
+| `GET`    | `/inventory/receipts/station/:stationId` | 🔒 Bearer                         | Obtener recepciones de combustible por estación  |
+| `POST`   | `/inventory/volumetric-balance`          | 🔒 ADMIN / SUPER_ADMIN / PROGRAMADOR | Generar balance volumétrico diario (varillaje)   |
+| `GET`    | `/inventory/volumetric-balance/station/:stationId` | 🔒 Bearer               | Obtener balances volumétricos por estación       |
+
+### Cash Flow (`/cash-flow`)
+
+| Method   | Endpoint                | Access                            | Description                                        |
+| -------- | ----------------------- | --------------------------------- | -------------------------------------------------- |
+| `POST`   | `/cash-flow`            | 🔒 VENDEDOR / ADMIN / SUPER_ADMIN | Registrar ingreso o egreso de caja chica           |
+| `GET`    | `/cash-flow/station/:id`| 🔒 Bearer                         | Obtener movimientos de caja chica por estación     |
+| `GET`    | `/cash-flow/shift/:id`  | 🔒 Bearer                         | Obtener movimientos de caja chica por turno        |
+
 
 ---
 
@@ -741,12 +778,16 @@ A public health check endpoint is available at `GET /health` to monitor infrastr
 
 The project uses TypeScript path aliases for clean imports:
 
-| Alias       | Maps To                    | Usage                                  |
-| ----------- | -------------------------- | -------------------------------------- |
-| `@core/*`   | `src/core/*`               | Shared DTOs, services, repositories    |
-| `@auth/*`   | `src/modules/auth/*`       | Auth module internals                  |
-| `@user/*`   | `src/modules/user/*`       | User module internals                  |
-| `@utils*`   | `src/utils/*`              | Utility functions                      |
+| Alias          | Maps To                       | Usage                                  |
+| -------------- | ----------------------------- | -------------------------------------- |
+| `@core/*`      | `src/core/*`                  | Shared DTOs, services, repositories    |
+| `@auth/*`      | `src/modules/auth/*`          | Auth module internals                  |
+| `@user/*`      | `src/modules/user/*`          | User module internals                  |
+| `@stations/*`  | `src/modules/stations/*`      | Stations, tanks & pumps module         |
+| `@shifts/*`    | `src/modules/shifts/*`        | Shifts & sales module                  |
+| `@inventory/*` | `src/modules/inventory/*`     | Inventory & volumetric balance module  |
+| `@cash-flow/*` | `src/modules/cash-flow/*`     | Petty cash flow module                 |
+| `@utils*`      | `src/utils/*`                 | Utility functions                      |
 
 **Example:**
 

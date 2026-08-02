@@ -24,7 +24,9 @@ export class InventoryService {
     return this.prismaService.$transaction(async (tx) => {
       const tank = await tx.tank.findUnique({ where: { id: dto.tankId } });
       if (!tank) {
-        throw new NotFoundException(`Tanque con ID ${dto.tankId} no encontrado.`);
+        throw new NotFoundException(
+          `Tanque con ID ${dto.tankId} no encontrado.`,
+        );
       }
 
       const volumeLiters = new Decimal(dto.volumeLiters);
@@ -47,7 +49,9 @@ export class InventoryService {
           fuelType: dto.fuelType,
           volumeLiters,
           costAmountBs: new Decimal(dto.costAmountBs),
-          costAmountUsd: dto.costAmountUsd ? new Decimal(dto.costAmountUsd) : null,
+          costAmountUsd: dto.costAmountUsd
+            ? new Decimal(dto.costAmountUsd)
+            : null,
           receivedAt: dto.receivedAt ? new Date(dto.receivedAt) : new Date(),
           notes: dto.notes,
         },
@@ -73,7 +77,9 @@ export class InventoryService {
     return this.prismaService.$transaction(async (tx) => {
       const tank = await tx.tank.findUnique({ where: { id: dto.tankId } });
       if (!tank) {
-        throw new NotFoundException(`Tanque con ID ${dto.tankId} no encontrado.`);
+        throw new NotFoundException(
+          `Tanque con ID ${dto.tankId} no encontrado.`,
+        );
       }
 
       const balanceDate = new Date(dto.date);
@@ -130,7 +136,9 @@ export class InventoryService {
       const difference = theoreticalInventory.minus(physicalMeasurement);
 
       // 6. Criterio de Tolerancia (0.5% de capacidad máxima o 50 L por defecto)
-      const toleranceThreshold = new Decimal(tank.maxCapacity).mul(new Decimal('0.005'));
+      const toleranceThreshold = new Decimal(tank.maxCapacity).mul(
+        new Decimal('0.005'),
+      );
       const toleranceAlert = difference.abs().greaterThan(toleranceThreshold);
 
       // 7. Upsert del registro de balance volumétrico

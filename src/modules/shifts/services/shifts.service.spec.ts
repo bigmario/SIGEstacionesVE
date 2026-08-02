@@ -1,5 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, UnprocessableEntityException } from '@nestjs/common';
+import {
+  BadRequestException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { ShiftStatus } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
@@ -75,7 +78,10 @@ describe('ShiftsService', () => {
 
     it('should open shift successfully when no active shift exists', async () => {
       repository.findActiveShiftByUser.mockResolvedValue(null);
-      repository.openShift.mockResolvedValue({ id: 1, status: ShiftStatus.ABIERTO } as any);
+      repository.openShift.mockResolvedValue({
+        id: 1,
+        status: ShiftStatus.ABIERTO,
+      } as any);
 
       const result = await service.openShift({
         stationId: 1,
@@ -110,14 +116,18 @@ describe('ShiftsService', () => {
         cashFlows: [],
       };
 
-      (prismaService.shift.findUnique as jest.Mock).mockResolvedValue(mockShift);
+      (prismaService.shift.findUnique as jest.Mock).mockResolvedValue(
+        mockShift,
+      );
       (prismaService.tank.findUnique as jest.Mock).mockResolvedValue({
         id: 10,
         code: 'TQ-01',
         currentStock: new Decimal('200'), // 200 L stock < 500 L sales
       });
 
-      await expect(service.closeShift(1)).rejects.toThrow(UnprocessableEntityException);
+      await expect(service.closeShift(1)).rejects.toThrow(
+        UnprocessableEntityException,
+      );
     });
   });
 });

@@ -54,7 +54,13 @@ export class ShiftsRepository extends BaseRepository {
     return this.prismaService.shift.findFirst({
       where: {
         userId,
-        status: { in: [ShiftStatus.ABIERTO, ShiftStatus.LECTURA_BOMBAS, ShiftStatus.ARQUEO_CAJA] },
+        status: {
+          in: [
+            ShiftStatus.ABIERTO,
+            ShiftStatus.LECTURA_BOMBAS,
+            ShiftStatus.ARQUEO_CAJA,
+          ],
+        },
         deletedAt: null,
       },
       include: {
